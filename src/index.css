@@ -1,13 +1,29 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Outfit:wght@300;400;500;600;700;800&display=swap');
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+
 body {
-  margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 15% 15%, rgba(255,255,255,0.6), transparent 40%),
+    radial-gradient(circle at 85% 85%, rgba(255,215,120,0.3), transparent 40%),
+    radial-gradient(circle at 50% 50%, rgba(255,235,180,0.2), transparent 60%),
+    linear-gradient(135deg, #f5e6c8 0%, #fdf3e3 30%, #f0d9a8 60%, #faebd7 100%);
+  background-attachment: fixed;
+  color: #2C1810;
+  font-family: 'Outfit', sans-serif;
+  overflow-x: hidden;
 }
 
-code {
-  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
-    monospace;
+::selection { background: #C9A84C; color: white; }
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: #f5e6c8; }
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(to bottom, #C9A84C, #8B6914);
+  border-radius: 10px;
 }
