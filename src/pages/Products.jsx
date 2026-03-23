@@ -1,16 +1,20 @@
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import { useAdmin } from "../context/AdminContext";
+import SEO from "../components/SEO";
 
 const ITEMS_PER_PAGE = 9;
 const GOLD = "#8B6914";
 const DARK = "#2C1810";
 const MID = "#5C3D2E";
 const LIGHT = "#8B6E5A";
-const CARD_BG = "rgba(255,255,255,0.85)";
+const CARD_BG = "rgba(255,255,255,0.88)";
 const CARD_BORDER = "rgba(139,105,20,0.2)";
 
-const categories = ["All", "T-Shirts", "Hoodies", "Caps", "3D Signages", "Corporate Branding", "Promotional"];
+const categories = [
+  "All", "T-Shirts", "Hoodies", "Caps",
+  "3D Signages", "Corporate Branding", "Promotional"
+];
 
 const Products = () => {
   const { products } = useAdmin();
@@ -41,30 +45,36 @@ const Products = () => {
       paddingTop: "68px",
       fontFamily: "'Outfit', sans-serif",
     }}>
+      <SEO
+        title="All Products — Custom Printed Apparel and Signage"
+        description="Browse Manuprints full catalog — custom printed t-shirts, hoodies, caps, 3D signages, corporate branding packages and promotional merchandise in Nairobi Kenya."
+        keywords="custom printed t-shirts nairobi, hoodies printing kenya, caps printing, 3D signage nairobi, promotional merchandise kenya"
+        url="/products"
+      />
 
       {/* PAGE HEADER */}
       <div style={{
-        background: "rgba(255,255,255,0.5)",
-        backdropFilter: "blur(10px)",
+        background: "rgba(255,255,255,0.55)",
+        backdropFilter: "blur(12px)",
         borderBottom: `1px solid ${CARD_BORDER}`,
-        padding: "28px 5%",
+        padding: "24px 5%",
       }}>
         <div style={{
           maxWidth: "1400px", margin: "0 auto",
           display: "flex", justifyContent: "space-between",
-          alignItems: "center", flexWrap: "wrap", gap: "16px",
+          alignItems: "center", flexWrap: "wrap", gap: "14px",
         }}>
           <div>
             <p style={{
               color: GOLD, fontSize: "11px", fontWeight: "700",
               letterSpacing: "3px", textTransform: "uppercase",
-              marginBottom: "4px",
+              marginBottom: "4px", fontFamily: "'Outfit', sans-serif",
             }}>
               Our Collection
             </p>
             <h1 style={{
               fontFamily: "'Bebas Neue', cursive",
-              fontSize: "clamp(28px, 4vw, 44px)",
+              fontSize: "clamp(26px, 4vw, 42px)",
               letterSpacing: "2px", color: DARK, lineHeight: "1",
             }}>
               All <span style={{ color: GOLD }}>Products</span>
@@ -74,8 +84,9 @@ const Products = () => {
           {/* Search */}
           <div style={{ position: "relative" }}>
             <span style={{
-              position: "absolute", left: "14px", top: "50%",
-              transform: "translateY(-50%)", fontSize: "14px", color: LIGHT,
+              position: "absolute", left: "13px", top: "50%",
+              transform: "translateY(-50%)",
+              fontSize: "13px", color: LIGHT,
             }}>
               🔍
             </span>
@@ -88,12 +99,12 @@ const Products = () => {
                 background: CARD_BG,
                 border: `1px solid ${CARD_BORDER}`,
                 borderRadius: "50px",
-                padding: "10px 18px 10px 40px",
+                padding: "9px 16px 9px 38px",
                 color: DARK, fontSize: "13px",
                 fontFamily: "'Outfit', sans-serif",
-                outline: "none", width: "260px",
+                outline: "none", width: "240px",
                 transition: "all 0.3s",
-                boxShadow: "0 2px 8px rgba(139,105,20,0.08)",
+                boxShadow: "0 2px 8px rgba(139,105,20,0.06)",
               }}
               onFocus={(e) => {
                 e.target.style.borderColor = GOLD;
@@ -101,23 +112,25 @@ const Products = () => {
               }}
               onBlur={(e) => {
                 e.target.style.borderColor = CARD_BORDER;
-                e.target.style.boxShadow = "0 2px 8px rgba(139,105,20,0.08)";
+                e.target.style.boxShadow = "0 2px 8px rgba(139,105,20,0.06)";
               }}
             />
           </div>
         </div>
       </div>
 
-      <div style={{ maxWidth: "1400px", margin: "0 auto", padding: "28px 5%" }}>
+      <div style={{ maxWidth: "1400px", margin: "0 auto", padding: "24px 5%" }}>
 
         {/* CATEGORY FILTER */}
         <div style={{
           display: "flex", gap: "8px",
-          flexWrap: "wrap", marginBottom: "24px", alignItems: "center",
+          flexWrap: "wrap", marginBottom: "20px",
+          alignItems: "center",
         }}>
           <span style={{
             color: MID, fontSize: "11px", fontWeight: "700",
-            letterSpacing: "1px", textTransform: "uppercase", marginRight: "4px",
+            letterSpacing: "1px", textTransform: "uppercase",
+            marginRight: "4px", fontFamily: "'Outfit', sans-serif",
           }}>
             Filter:
           </span>
@@ -130,13 +143,15 @@ const Products = () => {
                   ? `linear-gradient(135deg, ${GOLD}, #6B5010)`
                   : CARD_BG,
                 color: activeCategory === cat ? "white" : DARK,
-                border: `1px solid ${activeCategory === cat ? "transparent" : CARD_BORDER}`,
-                borderRadius: "50px", padding: "7px 18px",
+                border: `1px solid ${activeCategory === cat
+                  ? "transparent" : CARD_BORDER}`,
+                borderRadius: "50px",
+                padding: "7px 16px",
                 fontFamily: "'Outfit', sans-serif",
                 fontWeight: "600", fontSize: "12px",
                 cursor: "pointer", transition: "all 0.25s",
                 boxShadow: activeCategory === cat
-                  ? `0 4px 15px rgba(139,105,20,0.4)` : "none",
+                  ? `0 4px 12px rgba(139,105,20,0.35)` : "none",
               }}
               onMouseEnter={(e) => {
                 if (activeCategory !== cat) {
@@ -159,30 +174,40 @@ const Products = () => {
         </div>
 
         {/* Results Count */}
-        <p style={{ color: MID, fontSize: "13px", marginBottom: "20px" }}>
+        <p style={{
+          color: MID, fontSize: "13px",
+          marginBottom: "18px", fontFamily: "'Outfit', sans-serif",
+        }}>
           Showing{" "}
           <strong style={{ color: DARK }}>
-            {filtered.length === 0 ? 0 : (currentPage - 1) * ITEMS_PER_PAGE + 1}–
+            {filtered.length === 0 ? 0 : (currentPage - 1) * ITEMS_PER_PAGE + 1}
+            {" – "}
             {Math.min(currentPage * ITEMS_PER_PAGE, filtered.length)}
-          </strong>{" "}
-          of <strong style={{ color: GOLD }}>{filtered.length}</strong> products
+          </strong>
+          {" "}of{" "}
+          <strong style={{ color: GOLD }}>{filtered.length}</strong> products
         </p>
 
         {/* PRODUCT GRID */}
         {paginated.length === 0 ? (
           <div style={{
-            textAlign: "center", padding: "80px 0",
+            textAlign: "center", padding: "70px 0",
             background: CARD_BG,
-            borderRadius: "20px", border: `1px solid ${CARD_BORDER}`,
+            borderRadius: "18px",
+            border: `1px solid ${CARD_BORDER}`,
+            boxShadow: "0 2px 10px rgba(139,105,20,0.06)",
           }}>
-            <div style={{ fontSize: "48px", marginBottom: "16px" }}>🔍</div>
+            <div style={{ fontSize: "44px", marginBottom: "14px" }}>🔍</div>
             <h3 style={{
-              fontFamily: "'Bebas Neue', cursive", fontSize: "28px",
+              fontFamily: "'Bebas Neue', cursive", fontSize: "26px",
               color: DARK, letterSpacing: "2px", marginBottom: "8px",
             }}>
               No Products Found
             </h3>
-            <p style={{ color: MID, fontSize: "14px" }}>
+            <p style={{
+              color: MID, fontSize: "13px",
+              fontFamily: "'Outfit', sans-serif",
+            }}>
               Try a different search term or category.
             </p>
           </div>
@@ -190,7 +215,8 @@ const Products = () => {
           <div style={{
             display: "grid",
             gridTemplateColumns: "repeat(4, 1fr)",
-            gap: "16px", marginBottom: "36px",
+            gap: "14px",
+            marginBottom: "32px",
           }} className="product-grid">
             {paginated.map((product) => (
               <ProductCard key={product.id} product={product} />
@@ -201,17 +227,23 @@ const Products = () => {
         {/* PAGINATION */}
         {totalPages > 1 && (
           <div style={{
-            display: "flex", justifyContent: "center",
-            alignItems: "center", gap: "8px", paddingTop: "8px",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            gap: "8px",
+            paddingTop: "8px",
+            flexWrap: "wrap",
           }}>
+            {/* Prev */}
             <button
               onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
               disabled={currentPage === 1}
               style={{
-                background: currentPage === 1 ? "rgba(139,105,20,0.05)" : CARD_BG,
+                background: currentPage === 1
+                  ? "rgba(139,105,20,0.05)" : CARD_BG,
                 color: currentPage === 1 ? LIGHT : DARK,
                 border: `1px solid ${CARD_BORDER}`,
-                borderRadius: "8px", padding: "9px 18px",
+                borderRadius: "8px", padding: "8px 16px",
                 fontFamily: "'Outfit', sans-serif",
                 fontWeight: "600", fontSize: "13px",
                 cursor: currentPage === 1 ? "not-allowed" : "pointer",
@@ -230,9 +262,10 @@ const Products = () => {
                 }
               }}
             >
-              Prev
+              ← Prev
             </button>
 
+            {/* Page Numbers */}
             {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
               <button
                 key={page}
@@ -242,15 +275,17 @@ const Products = () => {
                     ? `linear-gradient(135deg, ${GOLD}, #6B5010)`
                     : CARD_BG,
                   color: currentPage === page ? "white" : DARK,
-                  border: `1px solid ${currentPage === page ? "transparent" : CARD_BORDER}`,
+                  border: `1px solid ${currentPage === page
+                    ? "transparent" : CARD_BORDER}`,
                   borderRadius: "8px",
-                  width: "38px", height: "38px",
+                  width: "36px", height: "36px",
                   fontFamily: "'Outfit', sans-serif",
                   fontWeight: "700", fontSize: "13px",
                   cursor: "pointer", transition: "all 0.25s",
-                  display: "flex", alignItems: "center", justifyContent: "center",
+                  display: "flex", alignItems: "center",
+                  justifyContent: "center",
                   boxShadow: currentPage === page
-                    ? `0 4px 15px rgba(139,105,20,0.4)` : "none",
+                    ? `0 4px 12px rgba(139,105,20,0.35)` : "none",
                 }}
                 onMouseEnter={(e) => {
                   if (currentPage !== page) {
@@ -269,14 +304,16 @@ const Products = () => {
               </button>
             ))}
 
+            {/* Next */}
             <button
               onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
               disabled={currentPage === totalPages}
               style={{
-                background: currentPage === totalPages ? "rgba(139,105,20,0.05)" : CARD_BG,
+                background: currentPage === totalPages
+                  ? "rgba(139,105,20,0.05)" : CARD_BG,
                 color: currentPage === totalPages ? LIGHT : DARK,
                 border: `1px solid ${CARD_BORDER}`,
-                borderRadius: "8px", padding: "9px 18px",
+                borderRadius: "8px", padding: "8px 16px",
                 fontFamily: "'Outfit', sans-serif",
                 fontWeight: "600", fontSize: "13px",
                 cursor: currentPage === totalPages ? "not-allowed" : "pointer",
@@ -295,7 +332,7 @@ const Products = () => {
                 }
               }}
             >
-              Next
+              Next →
             </button>
           </div>
         )}
@@ -303,47 +340,68 @@ const Products = () => {
 
       <style>{`
         @media (max-width: 1100px) {
-          .product-grid { grid-template-columns: repeat(3, 1fr) !important; }
+          .product-grid {
+            grid-template-columns: repeat(3, 1fr) !important;
+          }
         }
         @media (max-width: 768px) {
-          .product-grid { grid-template-columns: repeat(2, 1fr) !important; }
+          .product-grid {
+            grid-template-columns: repeat(2, 1fr) !important;
+          }
         }
-        @media (max-width: 480px) {
-          .product-grid { grid-template-columns: 1fr !important; }
+        @media (max-width: 380px) {
+          .product-grid {
+            grid-template-columns: 1fr !important;
+          }
         }
       `}</style>
     </div>
   );
 };
 
+/* ── PRODUCT CARD ── */
 const ProductCard = ({ product }) => {
   const [hovered, setHovered] = useState(false);
   const [imgIndex, setImgIndex] = useState(0);
-  const tagColors = [GOLD, "#A0892A", "#C49A3C", "#8B6914", "#6B5010", "#C9A84C"];
+
+  const tagColors = [
+    GOLD, "#A0892A", "#C49A3C",
+    "#8B6914", "#6B5010", "#C9A84C"
+  ];
   const color = tagColors[Math.abs(product.id) % tagColors.length] || GOLD;
 
   return (
     <Link to={`/products/${product.id}`} style={{ textDecoration: "none" }}>
       <div
-        onMouseEnter={() => { setHovered(true); if (product.images.length > 1) setImgIndex(1); }}
-        onMouseLeave={() => { setHovered(false); setImgIndex(0); }}
+        onMouseEnter={() => {
+          setHovered(true);
+          if (product.images && product.images.length > 1) setImgIndex(1);
+        }}
+        onMouseLeave={() => {
+          setHovered(false);
+          setImgIndex(0);
+        }}
         style={{
           background: "white",
-          borderRadius: "16px", overflow: "hidden",
+          borderRadius: "14px",
+          overflow: "hidden",
           border: `2px solid ${hovered ? color : "transparent"}`,
           transition: "all 0.3s ease",
-          transform: hovered ? "translateY(-6px)" : "translateY(0)",
+          transform: hovered ? "translateY(-5px)" : "translateY(0)",
           boxShadow: hovered
-            ? `0 20px 50px rgba(0,0,0,0.15)`
-            : "0 4px 15px rgba(0,0,0,0.08)",
+            ? `0 18px 45px rgba(0,0,0,0.12)`
+            : "0 3px 12px rgba(0,0,0,0.07)",
         }}
       >
         {/* Image */}
         <div style={{
-          position: "relative", height: "200px",
+          position: "relative",
+          height: "190px",
           background: "#FDF8F0",
-          display: "flex", alignItems: "center",
-          justifyContent: "center", padding: "8px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: "8px",
           overflow: "hidden",
         }}>
           {product.images && product.images[imgIndex] ? (
@@ -351,10 +409,11 @@ const ProductCard = ({ product }) => {
               src={product.images[imgIndex]}
               alt={product.name}
               style={{
-                maxWidth: "100%", maxHeight: "100%",
+                maxWidth: "100%",
+                maxHeight: "100%",
                 objectFit: "contain",
                 transition: "transform 0.5s ease",
-                transform: hovered ? "scale(1.07)" : "scale(1)",
+                transform: hovered ? "scale(1.06)" : "scale(1)",
               }}
               loading="lazy"
             />
@@ -364,8 +423,16 @@ const ProductCard = ({ product }) => {
               alignItems: "center", justifyContent: "center",
               color: LIGHT, width: "100%", height: "100%",
             }}>
-              <div style={{ fontSize: "36px", marginBottom: "6px", opacity: 0.3 }}>📷</div>
-              <p style={{ fontSize: "11px", fontFamily: "'Outfit', sans-serif", color: LIGHT }}>
+              <div style={{
+                fontSize: "32px", marginBottom: "6px", opacity: 0.3,
+              }}>
+                📷
+              </div>
+              <p style={{
+                fontSize: "10px",
+                fontFamily: "'Outfit', sans-serif",
+                color: LIGHT,
+              }}>
                 No photo yet
               </p>
             </div>
@@ -373,7 +440,7 @@ const ProductCard = ({ product }) => {
 
           {/* Category Badge */}
           <div style={{
-            position: "absolute", top: "10px", left: "10px",
+            position: "absolute", top: "9px", left: "9px",
             background: color,
             borderRadius: "20px", padding: "3px 10px",
             boxShadow: `0 2px 8px ${color}50`,
@@ -387,7 +454,7 @@ const ProductCard = ({ product }) => {
             </span>
           </div>
 
-          {/* Image dots */}
+          {/* Image indicator dots */}
           {product.images && product.images.length > 1 && (
             <div style={{
               position: "absolute", bottom: "8px", right: "8px",
@@ -396,7 +463,8 @@ const ProductCard = ({ product }) => {
               {product.images.map((_, i) => (
                 <div key={i} style={{
                   width: "5px", height: "5px", borderRadius: "50%",
-                  background: i === imgIndex ? GOLD : "rgba(139,105,20,0.3)",
+                  background: i === imgIndex
+                    ? GOLD : "rgba(139,105,20,0.3)",
                   transition: "background 0.3s",
                 }} />
               ))}
@@ -407,16 +475,20 @@ const ProductCard = ({ product }) => {
           {hovered && (
             <div style={{
               position: "absolute", inset: 0,
-              background: `${color}12`,
-              display: "flex", alignItems: "center",
+              background: `${color}10`,
+              display: "flex",
+              alignItems: "center",
               justifyContent: "center",
             }}>
               <span style={{
-                background: color, color: "white",
-                padding: "9px 22px", borderRadius: "50px",
+                background: color,
+                color: "white",
+                padding: "8px 20px",
+                borderRadius: "50px",
                 fontFamily: "'Outfit', sans-serif",
-                fontWeight: "700", fontSize: "12px",
-                boxShadow: `0 4px 15px ${color}50`,
+                fontWeight: "700",
+                fontSize: "12px",
+                boxShadow: `0 4px 14px ${color}50`,
               }}>
                 View Product
               </span>
@@ -424,67 +496,91 @@ const ProductCard = ({ product }) => {
           )}
         </div>
 
-        {/* Info */}
-        <div style={{ padding: "14px 16px" }}>
+        {/* Product Info */}
+        <div style={{ padding: "13px 15px" }}>
           <h3 style={{
             fontFamily: "'Outfit', sans-serif",
-            fontSize: "14px", fontWeight: "700",
-            color: DARK, marginBottom: "4px",
-            whiteSpace: "nowrap", overflow: "hidden",
+            fontSize: "13px", fontWeight: "700",
+            color: DARK, marginBottom: "5px",
+            whiteSpace: "nowrap",
+            overflow: "hidden",
             textOverflow: "ellipsis",
           }}>
             {product.name}
           </h3>
 
+          {/* Size tags */}
           {product.sizes && product.sizes[0] !== "Custom" && (
             <div style={{
-              display: "flex", gap: "4px",
-              flexWrap: "wrap", marginBottom: "10px",
+              display: "flex", gap: "3px",
+              flexWrap: "wrap", marginBottom: "9px",
             }}>
               {product.sizes.slice(0, 4).map((size) => (
                 <span key={size} style={{
-                  background: "rgba(139,105,20,0.08)",
-                  border: `1px solid rgba(139,105,20,0.2)`,
-                  borderRadius: "4px", padding: "1px 6px",
-                  fontSize: "9px", fontWeight: "600",
-                  color: GOLD, fontFamily: "'Outfit', sans-serif",
+                  background: "rgba(139,105,20,0.07)",
+                  border: `1px solid rgba(139,105,20,0.18)`,
+                  borderRadius: "4px",
+                  padding: "1px 5px",
+                  fontSize: "8px", fontWeight: "600",
+                  color: GOLD,
+                  fontFamily: "'Outfit', sans-serif",
                 }}>
                   {size}
                 </span>
               ))}
               {product.sizes.length > 4 && (
-                <span style={{ color: GOLD, fontSize: "9px", fontWeight: "600", fontFamily: "'Outfit', sans-serif" }}>
+                <span style={{
+                  color: GOLD, fontSize: "8px",
+                  fontWeight: "600",
+                  fontFamily: "'Outfit', sans-serif",
+                }}>
                   +{product.sizes.length - 4}
                 </span>
               )}
             </div>
           )}
 
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          {/* Price + Arrow */}
+          <div style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+          }}>
             <div>
               <div style={{
                 fontFamily: "'Bebas Neue', cursive",
-                fontSize: "20px", color: GOLD,
-                letterSpacing: "1px", lineHeight: "1",
+                fontSize: "19px",
+                color: GOLD,
+                letterSpacing: "1px",
+                lineHeight: "1",
               }}>
                 KSh {product.price.toLocaleString()}
               </div>
               {product.delivery > 0 && (
-                <div style={{ color: LIGHT, fontSize: "10px", fontFamily: "'Outfit', sans-serif" }}>
+                <div style={{
+                  color: LIGHT, fontSize: "9px",
+                  fontFamily: "'Outfit', sans-serif",
+                }}>
                   + KSh {product.delivery} delivery
                 </div>
               )}
             </div>
             <div style={{
-              width: "32px", height: "32px", borderRadius: "50%",
-              background: hovered ? color : "rgba(139,105,20,0.1)",
-              display: "flex", alignItems: "center", justifyContent: "center",
+              width: "30px", height: "30px",
+              borderRadius: "50%",
+              background: hovered
+                ? color
+                : "rgba(139,105,20,0.1)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
               transition: "all 0.3s",
-              boxShadow: hovered ? `0 4px 12px ${color}50` : "none",
+              boxShadow: hovered
+                ? `0 4px 12px ${color}50` : "none",
             }}>
               <span style={{
                 color: hovered ? "white" : GOLD,
-                fontSize: "14px", fontWeight: "700",
+                fontSize: "13px", fontWeight: "700",
                 transition: "color 0.3s",
               }}>
                 →
