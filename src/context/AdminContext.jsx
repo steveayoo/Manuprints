@@ -1,167 +1,187 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
+import {
+  collection, addDoc, updateDoc, deleteDoc,
+  doc, onSnapshot, serverTimestamp, orderBy, query
+} from "firebase/firestore";
+import {
+  ref, uploadBytes, getDownloadURL, deleteObject
+} from "firebase/storage";
+import {
+  signInWithEmailAndPassword, signOut, onAuthStateChanged
+} from "firebase/auth";
+import { db, storage, auth } from "../firebase";
+import toast from "react-hot-toast";
 
 const AdminContext = createContext();
 
-const defaultProducts = [
-  {
-    id: 1,
-    name: "Custom Printed T-Shirt",
-    category: "T-Shirts",
-    price: 850,
-    delivery: 200,
-    description: "High-quality cotton t-shirt with custom screen printing. Available in all sizes. Perfect for corporate events, teams, and promotions.",
-    sizes: ["XS", "S", "M", "L", "XL", "XXL"],
-    fabric: "100% Cotton",
-    images: [],
-    featured: true,
-  },
-  {
-    id: 2,
-    name: "Branded Hoodie",
-    category: "Hoodies",
-    price: 1800,
-    delivery: 200,
-    description: "Premium fleece hoodie with embroidered or printed branding. Perfect for corporate teams and events.",
-    sizes: ["S", "M", "L", "XL", "XXL"],
-    fabric: "80% Cotton, 20% Polyester",
-    images: [],
-    featured: true,
-  },
-  {
-    id: 3,
-    name: "Custom Printed Cap",
-    category: "Caps",
-    price: 650,
-    delivery: 150,
-    description: "Stylish caps with embroidered logo or printed design. One size fits all with adjustable strap.",
-    sizes: ["One Size"],
-    fabric: "Polyester / Cotton blend",
-    images: [],
-    featured: true,
-  },
-  {
-    id: 4,
-    name: "3D Signage Board",
-    category: "3D Signages",
-    price: 12000,
-    delivery: 500,
-    description: "Eye-catching 3D fabricated signage for shops, offices, and events. Custom size and design.",
-    sizes: ["Custom"],
-    fabric: "Acrylic / Aluminum",
-    images: [],
-    featured: true,
-  },
-  {
-    id: 5,
-    name: "Corporate Branding Package",
-    category: "Corporate Branding",
-    price: 25000,
-    delivery: 0,
-    description: "Complete corporate branding package including logo design, business cards, letterheads, and branded merchandise.",
-    sizes: ["Custom"],
-    fabric: "Various",
-    images: [],
-    featured: false,
-  },
-  {
-    id: 6,
-    name: "Promotional Merchandise",
-    category: "Promotional",
-    price: 300,
-    delivery: 150,
-    description: "Branded pens, mugs, bags, and more. Minimum order of 50 units. Perfect for events and giveaways.",
-    sizes: ["Custom"],
-    fabric: "Various",
-    images: [],
-    featured: false,
-  },
-];
+const defaultSettings = {
+  heroTitle: "Premium Printing & Branding Solutions",
+  heroSubtitle: "Custom printed apparel, 3D signages, corporate branding and more. We bring your brand to life across Kenya.",
+};
 
 export const AdminProvider = ({ children }) => {
-  const [products, setProducts] = useState(() => {
-    try {
-      const saved = localStorage.getItem("manuprints_products");
-      return saved ? JSON.parse(saved) : defaultProducts;
-    } catch {
-      return defaultProducts;
-    }
-  });
+  const [products, setProducts] = useState([]);
+  const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(false);
+  const [siteSettings, setSiteSettings] = useState(defaultSettings);
+  const [loading, setLoading] = useState(true);
+  const [authLoading, setAuthLoading] = useState(true);
 
-  const [siteSettings, setSiteSettings] = useState(() => {
-    try {
-      const saved = localStorage.getItem("manuprints_settings");
-      return saved ? JSON.parse(saved) : {
-        heroTitle: "Premium Printing & Branding Solutions",
-        heroSubtitle: "We bring your brand to life with world-class printing, branding, and fabrication services across Kenya.",
-      };
-    } catch {
-      return {
-        heroTitle: "Premium Printing & Branding Solutions",
-        heroSubtitle: "We bring your brand to life with world-class printing, branding, and fabrication services across Kenya.",
-      };
-    }
-  });
-
-  const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(() => {
-    return sessionStorage.getItem("manuprints_admin") === "true";
-  });
-
+  // Listen to Firebase Auth state
   useEffect(() => {
-    try {
-      localStorage.setItem("manuprints_products", JSON.stringify(products));
-    } catch (e) {
-      console.warn("Storage full — consider reducing image sizes.");
-    }
-  }, [products]);
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user && user.email === "45.qualitywriters@gmail.com") {
+        setIsAdminLoggedIn(true);
+      } else {
+        setIsAdminLoggedIn(false);
+      }
+      setAuthLoading(false);
+    });
+    return () => unsubscribe();
+  }, []);
 
+  // Listen to Firestore products in real time
   useEffect(() => {
+    const q = query(collection(db, "products"), orderBy("createdAt", "desc"));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const data = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+      setProducts(data);
+      setLoading(false);
+    }, (error) => {
+      console.error("Error fetching products:", error);
+      setLoading(false);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // Login with Firebase Auth
+  const login = async (email, password) => {
     try {
-      localStorage.setItem("manuprints_settings", JSON.stringify(siteSettings));
-    } catch (e) {
-      console.warn("Storage error.");
-    }
-  }, [siteSettings]);
-
-  const addProduct = (product) => {
-    const newProduct = { ...product, id: Date.now() };
-    setProducts((prev) => [...prev, newProduct]);
-  };
-
-  const updateProduct = (id, updatedProduct) => {
-    setProducts((prev) =>
-      prev.map((p) => (p.id === id ? { ...p, ...updatedProduct } : p))
-    );
-  };
-
-  const deleteProduct = (id) => {
-    setProducts((prev) => prev.filter((p) => p.id !== id));
-  };
-
-  const login = (password) => {
-    if (password === "manuprints2024") {
-      setIsAdminLoggedIn(true);
-      sessionStorage.setItem("manuprints_admin", "true");
+      await signInWithEmailAndPassword(auth, email, password);
+      toast.success("Welcome back, Admin!");
       return true;
+    } catch (error) {
+      toast.error("Invalid email or password.");
+      return false;
     }
-    return false;
   };
 
-  const logout = () => {
-    setIsAdminLoggedIn(false);
-    sessionStorage.removeItem("manuprints_admin");
+  // Logout
+  const logout = async () => {
+    try {
+      await signOut(auth);
+      toast.success("Logged out successfully.");
+    } catch (error) {
+      toast.error("Error logging out.");
+    }
+  };
+
+  // Upload image to Firebase Storage
+  const uploadImage = async (file, productName) => {
+    try {
+      const timestamp = Date.now();
+      const fileName = `products/${productName}-${timestamp}-${file.name}`;
+      const storageRef = ref(storage, fileName);
+      const snapshot = await uploadBytes(storageRef, file);
+      const downloadURL = await getDownloadURL(snapshot.ref);
+      return downloadURL;
+    } catch (error) {
+      console.error("Error uploading image:", error);
+      toast.error("Error uploading image.");
+      return null;
+    }
+  };
+
+  // Add product to Firestore
+  const addProduct = async (productData, imageFiles) => {
+    try {
+      toast.loading("Uploading images...");
+      const imageURLs = [];
+      for (const file of imageFiles) {
+        if (file) {
+          const url = await uploadImage(file, productData.name);
+          if (url) imageURLs.push(url);
+        }
+      }
+      toast.dismiss();
+      const newProduct = {
+        ...productData,
+        images: imageURLs,
+        createdAt: serverTimestamp(),
+      };
+      await addDoc(collection(db, "products"), newProduct);
+      toast.success("Product added successfully!");
+      return true;
+    } catch (error) {
+      toast.dismiss();
+      console.error("Error adding product:", error);
+      toast.error("Error adding product.");
+      return false;
+    }
+  };
+
+  // Update product in Firestore
+  const updateProduct = async (id, productData, newImageFiles, existingImages) => {
+    try {
+      toast.loading("Updating product...");
+      const imageURLs = [...existingImages];
+      for (const file of newImageFiles) {
+        if (file) {
+          const url = await uploadImage(file, productData.name);
+          if (url) imageURLs.push(url);
+        }
+      }
+      toast.dismiss();
+      const updatedProduct = {
+        ...productData,
+        images: imageURLs,
+        updatedAt: serverTimestamp(),
+      };
+      await updateDoc(doc(db, "products", id), updatedProduct);
+      toast.success("Product updated successfully!");
+      return true;
+    } catch (error) {
+      toast.dismiss();
+      console.error("Error updating product:", error);
+      toast.error("Error updating product.");
+      return false;
+    }
+  };
+
+  // Delete product from Firestore
+  const deleteProduct = async (id) => {
+    try {
+      await deleteDoc(doc(db, "products", id));
+      toast.success("Product deleted successfully!");
+      return true;
+    } catch (error) {
+      console.error("Error deleting product:", error);
+      toast.error("Error deleting product.");
+      return false;
+    }
+  };
+
+  // Update site settings
+  const updateSettings = (newSettings) => {
+    setSiteSettings((prev) => ({ ...prev, ...newSettings }));
   };
 
   return (
     <AdminContext.Provider value={{
       products,
+      isAdminLoggedIn,
       siteSettings,
-      setSiteSettings,
+      loading,
+      authLoading,
+      login,
+      logout,
       addProduct,
       updateProduct,
       deleteProduct,
-      isAdminLoggedIn,
-      login,
-      logout,
+      updateSettings,
+      uploadImage,
     }}>
       {children}
     </AdminContext.Provider>
@@ -169,3 +189,4 @@ export const AdminProvider = ({ children }) => {
 };
 
 export const useAdmin = () => useContext(AdminContext);
+export default AdminContext;

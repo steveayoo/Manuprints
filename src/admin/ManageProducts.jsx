@@ -1,839 +1,656 @@
-import React, { useState, useRef } from "react";
+import React, { useState } from "react";
 import { useAdmin } from "../context/AdminContext";
-import toast from "react-hot-toast";
 
-const categories = ["T-Shirts", "Hoodies", "Caps", "3D Signages", "Corporate Branding", "Promotional"];
-const allSizes = ["XS", "S", "M", "L", "XL", "XXL", "One Size", "Custom"];
+const GOLD = "#8B6914";
+const DARK = "#2C1810";
+const MID = "#5C3D2E";
+const LIGHT = "#8B6E5A";
+const CARD_BG = "rgba(255,255,255,0.92)";
+const CARD_BORDER = "rgba(139,105,20,0.2)";
 
-const emptyProduct = {
-  name: "", category: "T-Shirts", price: "", delivery: "",
-  description: "", fabric: "", featured: false,
-  sizes: ["M", "L", "XL"],
-  images: ["", "", ""],
+const categories = [
+  "T-Shirts", "Hoodies", "Caps", "3D Signages",
+  "Corporate Branding", "Promotional"
+];
+
+const sizes = ["XS", "S", "M", "L", "XL", "XXL", "One Size", "Custom"];
+
+const emptyForm = {
+  name: "", category: "T-Shirts", price: "",
+  delivery: "", description: "", fabric: "",
+  sizes: [], featured: false,
 };
 
 const ManageProducts = () => {
   const { products, addProduct, updateProduct, deleteProduct } = useAdmin();
-  const [activeTab, setActiveTab] = useState("list");
-  const [editingProduct, setEditingProduct] = useState(null);
-  const [form, setForm] = useState(emptyProduct);
-  const [deleteConfirm, setDeleteConfirm] = useState(null);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [previewImg, setPreviewImg] = useState(null);
-  const [uploadingIndex, setUploadingIndex] = useState(null);
-  const fileRefs = [useRef(), useRef(), useRef()];
+  const [view, setView] = useState("list");
+  const [form, setForm] = useState(emptyForm);
+  const [editId, setEditId] = useState(null);
+  const [imageFiles, setImageFiles] = useState([null, null, null]);
+  const [imagePreviews, setImagePreviews] = useState([null, null, null]);
+  const [existingImages, setExistingImages] = useState([]);
+  const [deleteModal, setDeleteModal] = useState(null);
+  const [saving, setSaving] = useState(false);
 
-  const filtered = products.filter(p =>
-    p.name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  const openAdd = () => {
-    setForm(emptyProduct);
-    setEditingProduct(null);
-    setActiveTab("form");
+  const handleChange = (e) => {
+    const { name, value, type, checked } = e.target;
+    setForm((prev) => ({
+      ...prev,
+      [name]: type === "checkbox" ? checked : value,
+    }));
   };
 
-  const openEdit = (product) => {
-    setForm({
-      ...product,
-      price: product.price.toString(),
-      delivery: product.delivery.toString(),
-      images: [...(product.images || []), "", "", ""].slice(0, 3),
-    });
-    setEditingProduct(product.id);
-    setActiveTab("form");
-  };
-
-  const handleImageUpload = (index, file) => {
-    if (!file) return;
-
-    const maxSize = 2 * 1024 * 1024;
-    if (file.size > maxSize) {
-      toast.error(`Image too large. Please use images under 2MB. Current: ${(file.size / 1024 / 1024).toFixed(1)}MB`);
-      return;
-    }
-
-    if (!file.type.startsWith("image/")) {
-      toast.error("Please upload an image file (JPG, PNG, etc.)");
-      return;
-    }
-
-    setUploadingIndex(index);
-
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const base64 = e.target.result;
-      const imgs = [...form.images];
-      imgs[index] = base64;
-      setForm(prev => ({ ...prev, images: imgs }));
-      setUploadingIndex(null);
-      toast.success(`${index === 0 ? "Front" : index === 1 ? "Side" : "Back"} view uploaded!`);
-    };
-    reader.onerror = () => {
-      toast.error("Failed to read image. Try again.");
-      setUploadingIndex(null);
-    };
-    reader.readAsDataURL(file);
-  };
-
-  const removeImage = (index) => {
-    const imgs = [...form.images];
-    imgs[index] = "";
-    setForm(prev => ({ ...prev, images: imgs }));
-    if (fileRefs[index].current) fileRefs[index].current.value = "";
-    toast.success("Image removed.");
-  };
-
-  const handleSave = () => {
-    if (!form.name || !form.price || !form.description) {
-      toast.error("Please fill in Name, Price and Description.");
-      return;
-    }
-    const cleanImages = form.images.filter(img => img && img.trim() !== "");
-    if (cleanImages.length === 0) {
-      toast.error("Please upload at least one product photo.");
-      return;
-    }
-    const productData = {
-      ...form,
-      price: parseFloat(form.price),
-      delivery: parseFloat(form.delivery) || 0,
-      images: cleanImages,
-    };
-
-    try {
-      if (editingProduct) {
-        updateProduct(editingProduct, productData);
-        toast.success("Product updated successfully!");
-      } else {
-        addProduct(productData);
-        toast.success("Product added to store!");
-      }
-      setActiveTab("list");
-      setForm(emptyProduct);
-      setEditingProduct(null);
-    } catch (e) {
-      toast.error("Storage full! Please use smaller images (under 1MB each).");
-    }
-  };
-
-  const handleCancel = () => {
-    setActiveTab("list");
-    setForm(emptyProduct);
-    setEditingProduct(null);
-  };
-
-  const handleDelete = (id) => {
-    deleteProduct(id);
-    setDeleteConfirm(null);
-    toast.success("Product removed from store.");
-  };
-
-  const toggleSize = (size) => {
-    setForm(prev => ({
+  const handleSizeToggle = (size) => {
+    setForm((prev) => ({
       ...prev,
       sizes: prev.sizes.includes(size)
-        ? prev.sizes.filter(s => s !== size)
+        ? prev.sizes.filter((s) => s !== size)
         : [...prev.sizes, size],
     }));
   };
 
+  const handleImageSelect = (index, file) => {
+    if (!file) return;
+    if (file.size > 3 * 1024 * 1024) {
+      alert("Image must be under 3MB");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const newPreviews = [...imagePreviews];
+      newPreviews[index] = e.target.result;
+      setImagePreviews(newPreviews);
+    };
+    reader.readAsDataURL(file);
+    const newFiles = [...imageFiles];
+    newFiles[index] = file;
+    setImageFiles(newFiles);
+  };
+
+  const removeImage = (index) => {
+    const newFiles = [...imageFiles];
+    const newPreviews = [...imagePreviews];
+    newFiles[index] = null;
+    newPreviews[index] = null;
+    setImageFiles(newFiles);
+    setImagePreviews(newPreviews);
+  };
+
+  const removeExistingImage = (index) => {
+    const newExisting = existingImages.filter((_, i) => i !== index);
+    setExistingImages(newExisting);
+  };
+
+  const handleEdit = (product) => {
+    setForm({
+      name: product.name || "",
+      category: product.category || "T-Shirts",
+      price: product.price || "",
+      delivery: product.delivery || "",
+      description: product.description || "",
+      fabric: product.fabric || "",
+      sizes: product.sizes || [],
+      featured: product.featured || false,
+    });
+    setEditId(product.id);
+    setExistingImages(product.images || []);
+    setImageFiles([null, null, null]);
+    setImagePreviews([null, null, null]);
+    setView("form");
+  };
+
+  const handleSubmit = async () => {
+    if (!form.name || !form.price) {
+      alert("Please enter product name and price.");
+      return;
+    }
+    setSaving(true);
+    const productData = {
+      ...form,
+      price: parseFloat(form.price),
+      delivery: parseFloat(form.delivery) || 0,
+    };
+    const newFiles = imageFiles.filter(Boolean);
+    let success = false;
+    if (editId) {
+      success = await updateProduct(editId, productData, newFiles, existingImages);
+    } else {
+      success = await addProduct(productData, newFiles);
+    }
+    setSaving(false);
+    if (success) {
+      setForm(emptyForm);
+      setImageFiles([null, null, null]);
+      setImagePreviews([null, null, null]);
+      setExistingImages([]);
+      setEditId(null);
+      setView("list");
+    }
+  };
+
+  const handleDelete = async (id) => {
+    await deleteProduct(id);
+    setDeleteModal(null);
+  };
+
   const inputStyle = {
-    width: "100%", background: "#F5F7FA",
-    border: "1px solid #E8EFF5", borderRadius: "8px",
-    padding: "11px 14px", color: "#1A2332",
-    fontSize: "13px", fontFamily: "'Outfit', sans-serif",
-    outline: "none", transition: "border-color 0.3s",
+    width: "100%",
+    background: "rgba(255,255,255,0.95)",
+    border: `1px solid ${CARD_BORDER}`,
+    borderRadius: "8px",
+    padding: "9px 12px",
+    color: DARK,
+    fontSize: "13px",
+    fontFamily: "'Outfit', sans-serif",
+    outline: "none",
   };
 
   const labelStyle = {
-    color: "#6B7C93", fontSize: "11px", fontWeight: "700",
+    color: MID, fontSize: "11px", fontWeight: "700",
     letterSpacing: "1px", textTransform: "uppercase",
-    display: "block", marginBottom: "6px",
+    display: "block", marginBottom: "5px",
+    fontFamily: "'Outfit', sans-serif",
   };
 
-  const viewLabels = ["Front View", "Side View", "Back View"];
-
-  return (
-    <div>
-      {/* Tab Header */}
-      <div style={{
-        display: "flex", justifyContent: "space-between",
-        alignItems: "center", marginBottom: "20px",
-        flexWrap: "wrap", gap: "10px",
-      }}>
-        <div style={{ display: "flex", gap: "8px" }}>
+  if (view === "form") {
+    return (
+      <div>
+        {/* Header */}
+        <div style={{
+          display: "flex", justifyContent: "space-between",
+          alignItems: "center", marginBottom: "20px",
+        }}>
+          <h2 style={{
+            fontFamily: "'Bebas Neue', cursive",
+            fontSize: "24px", letterSpacing: "2px", color: DARK,
+          }}>
+            {editId ? "Edit Product" : "Add New Product"}
+          </h2>
           <button
-            onClick={() => { setActiveTab("list"); setEditingProduct(null); }}
+            onClick={() => { setView("list"); setEditId(null); setForm(emptyForm); }}
             style={{
-              background: activeTab === "list" ? "#00C9A7" : "white",
-              color: activeTab === "list" ? "white" : "#4A6080",
-              border: "1px solid #E8EFF5", borderRadius: "8px",
-              padding: "9px 18px", fontFamily: "'Outfit', sans-serif",
-              fontWeight: "700", fontSize: "13px", cursor: "pointer",
-              transition: "all 0.3s",
+              background: "rgba(139,105,20,0.1)",
+              color: DARK, border: `1px solid ${CARD_BORDER}`,
+              borderRadius: "8px", padding: "8px 16px",
+              fontFamily: "'Outfit', sans-serif",
+              fontWeight: "600", fontSize: "12px",
+              cursor: "pointer",
             }}
           >
-            📦 All Products ({products.length})
-          </button>
-          <button
-            onClick={openAdd}
-            style={{
-              background: activeTab === "form" && !editingProduct ? "#00C9A7" : "white",
-              color: activeTab === "form" && !editingProduct ? "white" : "#4A6080",
-              border: "1px solid #E8EFF5", borderRadius: "8px",
-              padding: "9px 18px", fontFamily: "'Outfit', sans-serif",
-              fontWeight: "700", fontSize: "13px", cursor: "pointer",
-              transition: "all 0.3s",
-            }}
-          >
-            + Add New Product
+            Cancel
           </button>
         </div>
-        {activeTab === "list" && (
-          <input
-            type="text"
-            placeholder="Search products..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            style={{ ...inputStyle, width: "220px", padding: "9px 14px" }}
-            onFocus={(e) => (e.target.style.borderColor = "#00C9A7")}
-            onBlur={(e) => (e.target.style.borderColor = "#E8EFF5")}
-          />
-        )}
-      </div>
 
-      {/* ── PRODUCT LIST ── */}
-      {activeTab === "list" && (
-        <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-          {filtered.length === 0 ? (
-            <div style={{
-              textAlign: "center", padding: "60px",
-              background: "white", borderRadius: "14px",
-              border: "1px solid #EEF2F7",
+        <div style={{
+          display: "grid",
+          gridTemplateColumns: "1fr 1fr",
+          gap: "20px",
+        }} className="form-grid">
+
+          {/* LEFT — Product Info */}
+          <div style={{
+            background: CARD_BG, border: `1px solid ${CARD_BORDER}`,
+            borderRadius: "14px", padding: "20px",
+          }}>
+            <h3 style={{
+              fontFamily: "'Outfit', sans-serif", fontSize: "14px",
+              fontWeight: "700", color: DARK, marginBottom: "16px",
             }}>
-              <div style={{ fontSize: "48px", marginBottom: "12px" }}>📦</div>
-              <p style={{ color: "#6B7C93", fontFamily: "'Outfit', sans-serif", marginBottom: "16px" }}>
-                No products yet. Add your first product!
-              </p>
-              <button onClick={openAdd} style={{
-                background: "#00C9A7", color: "white",
-                border: "none", borderRadius: "8px", padding: "10px 24px",
-                fontFamily: "'Outfit', sans-serif", fontWeight: "700",
-                fontSize: "13px", cursor: "pointer",
-              }}>
-                + Add First Product
-              </button>
+              Product Information
+            </h3>
+
+            <label style={labelStyle}>Product Name *</label>
+            <input name="name" value={form.name}
+              onChange={handleChange} placeholder="e.g. Custom Printed T-Shirt"
+              style={{ ...inputStyle, marginBottom: "12px" }} />
+
+            <label style={labelStyle}>Category</label>
+            <select name="category" value={form.category}
+              onChange={handleChange}
+              style={{ ...inputStyle, marginBottom: "12px", cursor: "pointer" }}>
+              {categories.map((c) => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </select>
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginBottom: "12px" }}>
+              <div>
+                <label style={labelStyle}>Price (KSh) *</label>
+                <input name="price" type="number" value={form.price}
+                  onChange={handleChange} placeholder="850"
+                  style={inputStyle} />
+              </div>
+              <div>
+                <label style={labelStyle}>Delivery (KSh)</label>
+                <input name="delivery" type="number" value={form.delivery}
+                  onChange={handleChange} placeholder="200"
+                  style={inputStyle} />
+              </div>
             </div>
-          ) : (
-            filtered.map((product) => (
-              <div key={product.id} style={{
-                background: "white", border: "1px solid #EEF2F7",
-                borderRadius: "12px", padding: "14px 16px",
-                display: "flex", alignItems: "center", gap: "14px",
-                transition: "all 0.3s",
-              }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.borderColor = "#00C9A7";
-                  e.currentTarget.style.boxShadow = "0 4px 15px rgba(0,201,167,0.1)";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.borderColor = "#EEF2F7";
-                  e.currentTarget.style.boxShadow = "none";
-                }}
-              >
-                {/* Image Previews */}
-                <div style={{ display: "flex", gap: "6px", flexShrink: 0 }}>
-                  {[0, 1, 2].map(i => (
-                    <div key={i} style={{
-                      width: "52px", height: "52px",
-                      borderRadius: "8px", overflow: "hidden",
-                      background: "#F5F7FA",
-                      border: "1px solid #E8EFF5",
-                      display: "flex", alignItems: "center",
-                      justifyContent: "center", cursor: product.images[i] ? "pointer" : "default",
-                      position: "relative",
-                    }}
-                      onClick={() => product.images[i] && setPreviewImg(product.images[i])}
-                    >
-                      {product.images[i] ? (
-                        <>
-                          <img
-                            src={product.images[i]}
-                            alt={viewLabels[i]}
-                            style={{ width: "100%", height: "100%", objectFit: "contain" }}
-                          />
-                          <div style={{
-                            position: "absolute", bottom: 0, left: 0, right: 0,
-                            background: "rgba(0,201,167,0.85)",
-                            padding: "1px 0", textAlign: "center",
-                          }}>
-                            <span style={{
-                              color: "white", fontSize: "7px",
-                              fontFamily: "'Outfit', sans-serif", fontWeight: "700",
-                            }}>
-                              {i === 0 ? "FRONT" : i === 1 ? "SIDE" : "BACK"}
-                            </span>
-                          </div>
-                        </>
-                      ) : (
-                        <span style={{ fontSize: "18px", opacity: 0.3 }}>📷</span>
-                      )}
+
+            <label style={labelStyle}>Description</label>
+            <textarea name="description" value={form.description}
+              onChange={handleChange}
+              placeholder="Describe the product..."
+              rows={3}
+              style={{ ...inputStyle, marginBottom: "12px", resize: "vertical" }} />
+
+            <label style={labelStyle}>Material / Fabric</label>
+            <input name="fabric" value={form.fabric}
+              onChange={handleChange} placeholder="e.g. 100% Cotton"
+              style={{ ...inputStyle, marginBottom: "12px" }} />
+
+            <label style={labelStyle}>Available Sizes</label>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginBottom: "12px" }}>
+              {sizes.map((size) => (
+                <button key={size}
+                  onClick={() => handleSizeToggle(size)}
+                  style={{
+                    background: form.sizes.includes(size)
+                      ? `linear-gradient(135deg, ${GOLD}, #6B5010)`
+                      : "rgba(139,105,20,0.08)",
+                    color: form.sizes.includes(size) ? "white" : MID,
+                    border: `1px solid ${form.sizes.includes(size) ? "transparent" : CARD_BORDER}`,
+                    borderRadius: "6px", padding: "5px 12px",
+                    fontFamily: "'Outfit', sans-serif",
+                    fontWeight: "600", fontSize: "12px",
+                    cursor: "pointer",
+                  }}>
+                  {size}
+                </button>
+              ))}
+            </div>
+
+            <label style={{
+              display: "flex", alignItems: "center", gap: "10px",
+              cursor: "pointer",
+            }}>
+              <input type="checkbox" name="featured"
+                checked={form.featured} onChange={handleChange}
+                style={{ width: "16px", height: "16px", accentColor: GOLD }} />
+              <span style={{
+                color: MID, fontSize: "13px",
+                fontFamily: "'Outfit', sans-serif", fontWeight: "600",
+              }}>
+                Feature on Homepage
+              </span>
+            </label>
+          </div>
+
+          {/* RIGHT — Images */}
+          <div style={{
+            background: CARD_BG, border: `1px solid ${CARD_BORDER}`,
+            borderRadius: "14px", padding: "20px",
+          }}>
+            <h3 style={{
+              fontFamily: "'Outfit', sans-serif", fontSize: "14px",
+              fontWeight: "700", color: DARK, marginBottom: "16px",
+            }}>
+              Product Photos
+            </h3>
+
+            {/* Existing Images */}
+            {existingImages.length > 0 && (
+              <div style={{ marginBottom: "16px" }}>
+                <p style={{ ...labelStyle, marginBottom: "8px" }}>Current Photos</p>
+                <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                  {existingImages.map((url, i) => (
+                    <div key={i} style={{ position: "relative" }}>
+                      <img src={url} alt={`Product ${i + 1}`}
+                        style={{
+                          width: "72px", height: "72px",
+                          objectFit: "contain", borderRadius: "8px",
+                          border: `1px solid ${CARD_BORDER}`,
+                          background: "white", padding: "4px",
+                        }} />
+                      <button
+                        onClick={() => removeExistingImage(i)}
+                        style={{
+                          position: "absolute", top: "-6px", right: "-6px",
+                          width: "18px", height: "18px",
+                          background: "#EF4444", color: "white",
+                          border: "none", borderRadius: "50%",
+                          fontSize: "10px", cursor: "pointer",
+                          display: "flex", alignItems: "center",
+                          justifyContent: "center", fontWeight: "700",
+                        }}>
+                        x
+                      </button>
                     </div>
                   ))}
                 </div>
+              </div>
+            )}
 
-                {/* Info */}
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "3px" }}>
-                    <p style={{
-                      color: "#1A2332", fontWeight: "700", fontSize: "14px",
-                      fontFamily: "'Outfit', sans-serif",
-                      whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
-                    }}>
-                      {product.name}
-                    </p>
-                    {product.featured && (
-                      <span style={{
-                        background: "#FFF3E0", color: "#FF9800",
-                        borderRadius: "20px", padding: "1px 8px",
-                        fontSize: "10px", fontWeight: "700",
-                        fontFamily: "'Outfit', sans-serif", flexShrink: 0,
-                      }}>
-                        ⭐ Featured
-                      </span>
-                    )}
-                    {product.images.filter(i => i).length === 0 && (
-                      <span style={{
-                        background: "#FFEBEE", color: "#EF4444",
-                        borderRadius: "20px", padding: "1px 8px",
-                        fontSize: "10px", fontWeight: "700",
-                        fontFamily: "'Outfit', sans-serif", flexShrink: 0,
-                      }}>
-                        ⚠️ No Photos
-                      </span>
-                    )}
-                  </div>
-                  <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-                    <span style={{
-                      background: "#E3F2FD", color: "#00C9A7",
-                      borderRadius: "20px", padding: "2px 10px",
-                      fontSize: "10px", fontWeight: "700",
-                      fontFamily: "'Outfit', sans-serif",
-                    }}>
-                      {product.category}
-                    </span>
-                    <span style={{ color: "#6B7C93", fontSize: "11px", fontFamily: "'Outfit', sans-serif" }}>
-                      {product.images.filter(i => i).length}/3 photos
-                    </span>
-                  </div>
-                </div>
-
-                {/* Price */}
-                <div style={{ textAlign: "right", flexShrink: 0 }}>
+            {/* New Image Uploads */}
+            <p style={{ ...labelStyle, marginBottom: "8px" }}>
+              {existingImages.length > 0 ? "Add More Photos" : "Upload Photos"}
+            </p>
+            <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+              {["Front View", "Side View", "Back View"].map((label, i) => (
+                <div key={i}>
                   <p style={{
-                    fontFamily: "'Bebas Neue', cursive",
-                    fontSize: "22px", color: "#00C9A7", letterSpacing: "1px",
+                    color: LIGHT, fontSize: "10px",
+                    fontFamily: "'Outfit', sans-serif",
+                    fontWeight: "600", marginBottom: "4px",
                   }}>
-                    KSh {product.price.toLocaleString()}
+                    {label}
                   </p>
-                </div>
-
-                {/* Actions */}
-                <div style={{ display: "flex", gap: "8px", flexShrink: 0 }}>
-                  <button onClick={() => openEdit(product)} style={{
-                    background: "rgba(0,201,167,0.1)",
-                    border: "1px solid rgba(0,201,167,0.25)",
-                    borderRadius: "8px", padding: "8px 14px",
-                    color: "#00C9A7", fontSize: "12px", fontWeight: "700",
-                    cursor: "pointer", fontFamily: "'Outfit', sans-serif",
-                    transition: "all 0.2s",
-                  }}
-                    onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(0,201,167,0.2)")}
-                    onMouseLeave={(e) => (e.currentTarget.style.background = "rgba(0,201,167,0.1)")}
-                  >
-                    ✏️ Edit
-                  </button>
-                  <button onClick={() => setDeleteConfirm(product.id)} style={{
-                    background: "rgba(239,68,68,0.08)",
-                    border: "1px solid rgba(239,68,68,0.2)",
-                    borderRadius: "8px", padding: "8px 14px",
-                    color: "#EF4444", fontSize: "12px", fontWeight: "700",
-                    cursor: "pointer", fontFamily: "'Outfit', sans-serif",
-                    transition: "all 0.2s",
-                  }}
-                    onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(239,68,68,0.15)")}
-                    onMouseLeave={(e) => (e.currentTarget.style.background = "rgba(239,68,68,0.08)")}
-                  >
-                    🗑️ Remove
-                  </button>
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-      )}
-
-      {/* ── ADD / EDIT FORM ── */}
-      {activeTab === "form" && (
-        <div style={{
-          background: "white", border: "1px solid #EEF2F7",
-          borderRadius: "16px", padding: "24px",
-        }}>
-          <div style={{
-            display: "flex", justifyContent: "space-between",
-            alignItems: "center", marginBottom: "20px",
-          }}>
-            <h3 style={{
-              fontFamily: "'Bebas Neue', cursive", fontSize: "22px",
-              letterSpacing: "2px", color: "#1A2332",
-            }}>
-              {editingProduct ? "✏️ Edit Product" : "➕ Add New Product"}
-            </h3>
-            <button onClick={handleCancel} style={{
-              background: "rgba(239,68,68,0.08)",
-              border: "1px solid rgba(239,68,68,0.2)",
-              borderRadius: "8px", padding: "7px 14px",
-              color: "#EF4444", cursor: "pointer",
-              fontFamily: "'Outfit', sans-serif",
-              fontWeight: "700", fontSize: "12px",
-            }}>
-              ✕ Cancel
-            </button>
-          </div>
-
-          <div style={{
-            display: "grid",
-            gridTemplateColumns: "1fr 1fr",
-            gap: "32px",
-          }} className="form-cols">
-
-            {/* LEFT — Product Info */}
-            <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
-              <div>
-                <label style={labelStyle}>Product Name *</label>
-                <input
-                  type="text" value={form.name}
-                  onChange={(e) => setForm({ ...form, name: e.target.value })}
-                  placeholder="e.g. Custom Printed T-Shirt"
-                  style={inputStyle}
-                  onFocus={(e) => (e.target.style.borderColor = "#00C9A7")}
-                  onBlur={(e) => (e.target.style.borderColor = "#E8EFF5")}
-                />
-              </div>
-
-              <div>
-                <label style={labelStyle}>Category</label>
-                <select
-                  value={form.category}
-                  onChange={(e) => setForm({ ...form, category: e.target.value })}
-                  style={{ ...inputStyle, cursor: "pointer" }}
-                  onFocus={(e) => (e.target.style.borderColor = "#00C9A7")}
-                  onBlur={(e) => (e.target.style.borderColor = "#E8EFF5")}
-                >
-                  {categories.map(c => (
-                    <option key={c} value={c}>{c}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
-                <div>
-                  <label style={labelStyle}>Price (KSh) *</label>
-                  <input
-                    type="number" value={form.price}
-                    onChange={(e) => setForm({ ...form, price: e.target.value })}
-                    placeholder="850" style={inputStyle}
-                    onFocus={(e) => (e.target.style.borderColor = "#00C9A7")}
-                    onBlur={(e) => (e.target.style.borderColor = "#E8EFF5")}
-                  />
-                </div>
-                <div>
-                  <label style={labelStyle}>Delivery (KSh)</label>
-                  <input
-                    type="number" value={form.delivery}
-                    onChange={(e) => setForm({ ...form, delivery: e.target.value })}
-                    placeholder="200" style={inputStyle}
-                    onFocus={(e) => (e.target.style.borderColor = "#00C9A7")}
-                    onBlur={(e) => (e.target.style.borderColor = "#E8EFF5")}
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label style={labelStyle}>Description *</label>
-                <textarea
-                  rows={3} value={form.description}
-                  onChange={(e) => setForm({ ...form, description: e.target.value })}
-                  placeholder="Describe the product, printing details, customization options..."
-                  style={{ ...inputStyle, resize: "vertical" }}
-                  onFocus={(e) => (e.target.style.borderColor = "#00C9A7")}
-                  onBlur={(e) => (e.target.style.borderColor = "#E8EFF5")}
-                />
-              </div>
-
-              <div>
-                <label style={labelStyle}>Fabric / Material</label>
-                <input
-                  type="text" value={form.fabric}
-                  onChange={(e) => setForm({ ...form, fabric: e.target.value })}
-                  placeholder="e.g. 100% Cotton" style={inputStyle}
-                  onFocus={(e) => (e.target.style.borderColor = "#00C9A7")}
-                  onBlur={(e) => (e.target.style.borderColor = "#E8EFF5")}
-                />
-              </div>
-
-              <div>
-                <label style={labelStyle}>Available Sizes</label>
-                <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
-                  {allSizes.map(size => (
-                    <button
-                      key={size} type="button"
-                      onClick={() => toggleSize(size)}
-                      style={{
-                        background: form.sizes.includes(size) ? "#00C9A7" : "#F5F7FA",
-                        color: form.sizes.includes(size) ? "white" : "#4A6080",
-                        border: `1px solid ${form.sizes.includes(size) ? "#00C9A7" : "#E8EFF5"}`,
-                        borderRadius: "8px", padding: "5px 12px",
-                        fontSize: "12px", fontWeight: "700",
-                        cursor: "pointer", transition: "all 0.2s",
-                        fontFamily: "'Outfit', sans-serif",
-                      }}
-                    >
-                      {size}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div
-                onClick={() => setForm({ ...form, featured: !form.featured })}
-                style={{
-                  display: "flex", alignItems: "center", gap: "10px",
-                  padding: "12px 14px",
-                  background: form.featured ? "rgba(255,152,0,0.08)" : "#F5F7FA",
-                  border: `1px solid ${form.featured ? "rgba(255,152,0,0.3)" : "#E8EFF5"}`,
-                  borderRadius: "10px", cursor: "pointer", transition: "all 0.3s",
-                }}
-              >
-                <input
-                  type="checkbox" checked={form.featured}
-                  onChange={(e) => setForm({ ...form, featured: e.target.checked })}
-                  style={{ width: "16px", height: "16px", accentColor: "#FF9800", cursor: "pointer" }}
-                  onClick={(e) => e.stopPropagation()}
-                />
-                <div>
-                  <p style={{ color: "#1A2332", fontSize: "13px", fontWeight: "700", fontFamily: "'Outfit', sans-serif" }}>
-                    ⭐ Show on Homepage
-                  </p>
-                  <p style={{ color: "#6B7C93", fontSize: "11px", fontFamily: "'Outfit', sans-serif" }}>
-                    Featured products appear in the homepage grid
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* RIGHT — Photo Uploader */}
-            <div>
-              <label style={{ ...labelStyle, marginBottom: "12px" }}>
-                Product Photos — Upload From Your Computer
-              </label>
-
-              {/* Instructions */}
-              <div style={{
-                background: "rgba(0,201,167,0.06)",
-                border: "1px solid rgba(0,201,167,0.2)",
-                borderRadius: "10px", padding: "12px 14px",
-                marginBottom: "16px",
-              }}>
-                <p style={{ color: "#00C9A7", fontSize: "12px", fontFamily: "'Outfit', sans-serif", fontWeight: "700", marginBottom: "4px" }}>
-                  📸 Upload Your Own Photos
-                </p>
-                <p style={{ color: "#4A6080", fontSize: "11px", fontFamily: "'Outfit', sans-serif", lineHeight: "1.6" }}>
-                  Take photos of your printed products and upload them here.
-                  Use JPG or PNG files under <strong>2MB</strong> each for best performance.
-                  Add Front, Side and Back views for a better customer experience.
-                </p>
-              </div>
-
-              {/* Upload Slots */}
-              {[0, 1, 2].map((i) => (
-                <div key={i} style={{ marginBottom: "14px" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px" }}>
-                    <span style={{
-                      background: form.images[i] ? "#4CAF50" : "#00C9A7",
-                      color: "white", borderRadius: "6px",
-                      padding: "2px 10px", fontSize: "10px",
-                      fontWeight: "700", fontFamily: "'Outfit', sans-serif",
-                    }}>
-                      {viewLabels[i]}
-                    </span>
-                    {form.images[i] && (
+                  {imagePreviews[i] ? (
+                    <div style={{ position: "relative", display: "inline-block" }}>
+                      <img src={imagePreviews[i]} alt={label}
+                        style={{
+                          width: "100%", height: "120px",
+                          objectFit: "contain", borderRadius: "8px",
+                          border: `1px solid ${CARD_BORDER}`,
+                          background: "white", padding: "4px",
+                        }} />
                       <button
                         onClick={() => removeImage(i)}
                         style={{
-                          background: "rgba(239,68,68,0.1)",
-                          border: "1px solid rgba(239,68,68,0.2)",
-                          borderRadius: "6px", padding: "2px 10px",
-                          color: "#EF4444", fontSize: "10px",
-                          fontWeight: "700", cursor: "pointer",
-                          fontFamily: "'Outfit', sans-serif",
-                        }}
-                      >
-                        🗑️ Remove
-                      </button>
-                    )}
-                  </div>
-
-                  {form.images[i] ? (
-                    /* Image Preview with Replace option */
-                    <div style={{
-                      display: "flex", gap: "12px", alignItems: "center",
-                      background: "#F5F7FA", borderRadius: "10px",
-                      padding: "10px", border: "1px solid #E8EFF5",
-                    }}>
-                      <img
-                        src={form.images[i]}
-                        alt={viewLabels[i]}
-                        onClick={() => setPreviewImg(form.images[i])}
-                        style={{
-                          width: "80px", height: "80px",
-                          borderRadius: "8px", objectFit: "contain",
-                          border: "2px solid #00C9A7",
-                          cursor: "pointer",
-                        }}
-                      />
-                      <div style={{ flex: 1 }}>
-                        <p style={{
-                          color: "#4CAF50", fontSize: "12px",
-                          fontWeight: "700", fontFamily: "'Outfit', sans-serif",
-                          marginBottom: "6px",
+                          position: "absolute", top: "6px", right: "6px",
+                          background: "#EF4444", color: "white",
+                          border: "none", borderRadius: "6px",
+                          padding: "3px 8px", fontSize: "11px",
+                          cursor: "pointer", fontWeight: "700",
                         }}>
-                          ✅ Photo uploaded
-                        </p>
-                        <button
-                          onClick={() => fileRefs[i].current?.click()}
-                          style={{
-                            background: "white", color: "#00C9A7",
-                            border: "1px solid #00C9A7",
-                            borderRadius: "6px", padding: "5px 12px",
-                            fontSize: "11px", fontWeight: "700",
-                            cursor: "pointer", fontFamily: "'Outfit', sans-serif",
-                          }}
-                        >
-                          🔄 Replace Photo
-                        </button>
-                      </div>
+                        Remove
+                      </button>
                     </div>
                   ) : (
-                    /* Upload Drop Zone */
-                    <div
-                      onClick={() => fileRefs[i].current?.click()}
-                      style={{
-                        border: "2px dashed #C8DDE8",
-                        borderRadius: "10px", padding: "24px",
-                        textAlign: "center", cursor: "pointer",
-                        background: uploadingIndex === i ? "rgba(0,201,167,0.05)" : "#F5F7FA",
-                        transition: "all 0.3s",
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.borderColor = "#00C9A7";
-                        e.currentTarget.style.background = "rgba(0,201,167,0.05)";
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.borderColor = "#C8DDE8";
-                        e.currentTarget.style.background = "#F5F7FA";
-                      }}
-                    >
-                      {uploadingIndex === i ? (
-                        <div>
-                          <div style={{
-                            width: "24px", height: "24px",
-                            border: "3px solid #E8EFF5",
-                            borderTop: "3px solid #00C9A7",
-                            borderRadius: "50%", margin: "0 auto 8px",
-                            animation: "spin 0.8s linear infinite",
-                          }} />
-                          <p style={{ color: "#00C9A7", fontSize: "12px", fontFamily: "'Outfit', sans-serif", fontWeight: "700" }}>
-                            Uploading...
-                          </p>
-                        </div>
-                      ) : (
-                        <>
-                          <div style={{ fontSize: "28px", marginBottom: "8px" }}>📷</div>
-                          <p style={{ color: "#00C9A7", fontSize: "13px", fontWeight: "700", fontFamily: "'Outfit', sans-serif", marginBottom: "4px" }}>
-                            Click to upload {viewLabels[i].toLowerCase()} photo
-                          </p>
-                          <p style={{ color: "#6B7C93", fontSize: "11px", fontFamily: "'Outfit', sans-serif" }}>
-                            JPG, PNG — Max 2MB
-                          </p>
-                        </>
-                      )}
-                    </div>
+                    <label style={{
+                      display: "flex", flexDirection: "column",
+                      alignItems: "center", justifyContent: "center",
+                      height: "90px", borderRadius: "8px",
+                      border: `2px dashed rgba(139,105,20,0.3)`,
+                      cursor: "pointer", background: "rgba(139,105,20,0.04)",
+                      transition: "all 0.3s",
+                    }}>
+                      <span style={{ fontSize: "20px", marginBottom: "4px" }}>📷</span>
+                      <span style={{
+                        color: LIGHT, fontSize: "11px",
+                        fontFamily: "'Outfit', sans-serif",
+                      }}>
+                        Click to upload
+                      </span>
+                      <input type="file" accept="image/*"
+                        style={{ display: "none" }}
+                        onChange={(e) => handleImageSelect(i, e.target.files[0])} />
+                    </label>
                   )}
-
-                  {/* Hidden file input */}
-                  <input
-                    ref={fileRefs[i]}
-                    type="file"
-                    accept="image/*"
-                    style={{ display: "none" }}
-                    onChange={(e) => {
-                      const file = e.target.files[0];
-                      if (file) handleImageUpload(i, file);
-                    }}
-                  />
                 </div>
               ))}
+            </div>
 
-              {/* Progress bar */}
-              <div style={{ marginTop: "8px" }}>
-                <div style={{ display: "flex", gap: "6px", marginBottom: "4px" }}>
-                  {[0, 1, 2].map(i => (
-                    <div key={i} style={{
-                      flex: 1, height: "4px", borderRadius: "2px",
-                      background: form.images[i] ? "#4CAF50" : "#E8EFF5",
-                      transition: "background 0.3s",
+            <p style={{
+              color: LIGHT, fontSize: "10px",
+              fontFamily: "'Outfit', sans-serif",
+              marginTop: "8px",
+            }}>
+              Max 3MB per image. JPG or PNG recommended. 800x800px ideal.
+            </p>
+          </div>
+        </div>
+
+        {/* Save Button */}
+        <button
+          onClick={handleSubmit}
+          disabled={saving}
+          style={{
+            marginTop: "16px",
+            background: saving
+              ? "rgba(139,105,20,0.5)"
+              : `linear-gradient(135deg, ${GOLD}, #6B5010)`,
+            color: "white", border: "none",
+            borderRadius: "10px", padding: "13px 32px",
+            fontFamily: "'Outfit', sans-serif",
+            fontWeight: "700", fontSize: "14px",
+            cursor: saving ? "not-allowed" : "pointer",
+            boxShadow: `0 4px 16px rgba(139,105,20,0.35)`,
+            transition: "all 0.3s",
+          }}>
+          {saving ? "Saving..." : editId ? "Update Product" : "Add Product"}
+        </button>
+
+        <style>{`
+          @media (max-width: 768px) {
+            .form-grid { grid-template-columns: 1fr !important; }
+          }
+        `}</style>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      {/* Header */}
+      <div style={{
+        display: "flex", justifyContent: "space-between",
+        alignItems: "center", marginBottom: "20px",
+      }}>
+        <h2 style={{
+          fontFamily: "'Bebas Neue', cursive",
+          fontSize: "24px", letterSpacing: "2px", color: DARK,
+        }}>
+          Products ({products.length})
+        </h2>
+        <button
+          onClick={() => { setForm(emptyForm); setEditId(null); setView("form"); }}
+          style={{
+            background: `linear-gradient(135deg, ${GOLD}, #6B5010)`,
+            color: "white", border: "none",
+            borderRadius: "8px", padding: "10px 20px",
+            fontFamily: "'Outfit', sans-serif",
+            fontWeight: "700", fontSize: "13px",
+            cursor: "pointer",
+            boxShadow: `0 4px 14px rgba(139,105,20,0.35)`,
+          }}>
+          + Add Product
+        </button>
+      </div>
+
+      {/* Products List */}
+      {products.length === 0 ? (
+        <div style={{
+          textAlign: "center", padding: "60px 20px",
+          background: CARD_BG, borderRadius: "14px",
+          border: `1px solid ${CARD_BORDER}`,
+        }}>
+          <div style={{ fontSize: "40px", marginBottom: "12px" }}>📦</div>
+          <h3 style={{
+            fontFamily: "'Bebas Neue', cursive", fontSize: "22px",
+            color: DARK, letterSpacing: "2px", marginBottom: "8px",
+          }}>
+            No Products Yet
+          </h3>
+          <p style={{ color: MID, fontFamily: "'Outfit', sans-serif" }}>
+            Click "Add Product" to get started.
+          </p>
+        </div>
+      ) : (
+        <div style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))",
+          gap: "14px",
+        }}>
+          {products.map((product) => (
+            <div key={product.id} style={{
+              background: CARD_BG,
+              border: `1px solid ${CARD_BORDER}`,
+              borderRadius: "14px", overflow: "hidden",
+              boxShadow: "0 2px 8px rgba(139,105,20,0.06)",
+            }}>
+              {/* Image */}
+              <div style={{
+                height: "160px", background: "#FDF8F0",
+                display: "flex", alignItems: "center",
+                justifyContent: "center", padding: "8px",
+                position: "relative",
+              }}>
+                {product.images && product.images[0] ? (
+                  <img src={product.images[0]} alt={product.name}
+                    style={{
+                      maxWidth: "100%", maxHeight: "100%",
+                      objectFit: "contain", borderRadius: "6px",
                     }} />
-                  ))}
-                </div>
-                <p style={{ color: "#6B7C93", fontSize: "10px", fontFamily: "'Outfit', sans-serif" }}>
-                  {form.images.filter(i => i).length} of 3 photos added
-                  {form.images.filter(i => i).length === 0 && " — At least 1 required"}
+                ) : (
+                  <div style={{
+                    display: "flex", flexDirection: "column",
+                    alignItems: "center", color: LIGHT,
+                  }}>
+                    <span style={{ fontSize: "32px", opacity: 0.3 }}>📷</span>
+                    <p style={{ fontSize: "10px", fontFamily: "'Outfit', sans-serif" }}>
+                      No photo
+                    </p>
+                  </div>
+                )}
+                {product.featured && (
+                  <div style={{
+                    position: "absolute", top: "8px", right: "8px",
+                    background: GOLD, borderRadius: "20px",
+                    padding: "2px 8px",
+                  }}>
+                    <span style={{
+                      color: "white", fontSize: "9px",
+                      fontWeight: "700", fontFamily: "'Outfit', sans-serif",
+                    }}>
+                      FEATURED
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {/* Info */}
+              <div style={{ padding: "12px" }}>
+                <p style={{
+                  color: GOLD, fontSize: "10px", fontWeight: "700",
+                  textTransform: "uppercase", letterSpacing: "1px",
+                  fontFamily: "'Outfit', sans-serif", marginBottom: "2px",
+                }}>
+                  {product.category}
                 </p>
+                <h3 style={{
+                  color: DARK, fontSize: "14px", fontWeight: "700",
+                  fontFamily: "'Outfit', sans-serif", marginBottom: "4px",
+                  whiteSpace: "nowrap", overflow: "hidden",
+                  textOverflow: "ellipsis",
+                }}>
+                  {product.name}
+                </h3>
+                <p style={{
+                  fontFamily: "'Bebas Neue', cursive",
+                  fontSize: "18px", color: GOLD,
+                  letterSpacing: "1px", marginBottom: "10px",
+                }}>
+                  KSh {product.price?.toLocaleString()}
+                </p>
+
+                {/* Image count */}
+                <p style={{
+                  color: LIGHT, fontSize: "10px",
+                  fontFamily: "'Outfit', sans-serif", marginBottom: "10px",
+                }}>
+                  {product.images?.length || 0} photo(s) uploaded
+                </p>
+
+                {/* Actions */}
+                <div style={{ display: "flex", gap: "8px" }}>
+                  <button
+                    onClick={() => handleEdit(product)}
+                    style={{
+                      flex: 1,
+                      background: "rgba(139,105,20,0.1)",
+                      color: DARK,
+                      border: `1px solid ${CARD_BORDER}`,
+                      borderRadius: "7px", padding: "7px",
+                      fontFamily: "'Outfit', sans-serif",
+                      fontWeight: "600", fontSize: "12px",
+                      cursor: "pointer",
+                    }}>
+                    Edit
+                  </button>
+                  <button
+                    onClick={() => setDeleteModal(product.id)}
+                    style={{
+                      flex: 1,
+                      background: "rgba(239,68,68,0.1)",
+                      color: "#EF4444",
+                      border: "1px solid rgba(239,68,68,0.2)",
+                      borderRadius: "7px", padding: "7px",
+                      fontFamily: "'Outfit', sans-serif",
+                      fontWeight: "600", fontSize: "12px",
+                      cursor: "pointer",
+                    }}>
+                    Delete
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
-
-          {/* Save/Cancel Buttons */}
-          <div style={{
-            display: "flex", gap: "12px", marginTop: "24px",
-            paddingTop: "20px", borderTop: "1px solid #EEF2F7",
-          }}>
-            <button onClick={handleCancel} style={{
-              flex: 1, background: "#F5F7FA",
-              border: "1px solid #E8EFF5", borderRadius: "10px",
-              padding: "12px", color: "#6B7C93",
-              fontFamily: "'Outfit', sans-serif", fontWeight: "700",
-              fontSize: "14px", cursor: "pointer",
-            }}>
-              Cancel
-            </button>
-            <button onClick={handleSave} style={{
-              flex: 3,
-              background: "linear-gradient(135deg, #007CF0, #00C9A7)",
-              color: "white", border: "none", borderRadius: "10px",
-              padding: "12px", fontFamily: "'Outfit', sans-serif",
-              fontWeight: "700", fontSize: "14px",
-              letterSpacing: "0.5px", cursor: "pointer",
-              boxShadow: "0 4px 15px rgba(0,201,167,0.3)",
-              transition: "all 0.3s",
-            }}
-              onMouseEnter={(e) => {
-                e.target.style.transform = "translateY(-2px)";
-                e.target.style.boxShadow = "0 8px 25px rgba(0,201,167,0.4)";
-              }}
-              onMouseLeave={(e) => {
-                e.target.style.transform = "translateY(0)";
-                e.target.style.boxShadow = "0 4px 15px rgba(0,201,167,0.3)";
-              }}
-            >
-              {editingProduct ? "✅ Update Product" : "✅ Add Product to Store"}
-            </button>
-          </div>
+          ))}
         </div>
       )}
 
-      {/* Delete Confirm Modal */}
-      {deleteConfirm && (
+      {/* Delete Modal */}
+      {deleteModal && (
         <div style={{
-          position: "fixed", inset: 0, zIndex: 2000,
-          background: "rgba(0,0,0,0.5)", backdropFilter: "blur(4px)",
-          display: "flex", alignItems: "center", justifyContent: "center",
+          position: "fixed", inset: 0,
+          background: "rgba(0,0,0,0.5)",
+          display: "flex", alignItems: "center",
+          justifyContent: "center", zIndex: 9999,
           padding: "20px",
         }}>
           <div style={{
-            background: "white", borderRadius: "16px",
-            padding: "32px", maxWidth: "360px", width: "100%",
+            background: CARD_BG,
+            border: `1px solid ${CARD_BORDER}`,
+            borderRadius: "16px", padding: "28px",
+            maxWidth: "360px", width: "100%",
             textAlign: "center",
-            boxShadow: "0 20px 60px rgba(0,0,0,0.2)",
+            boxShadow: "0 8px 40px rgba(0,0,0,0.2)",
           }}>
-            <div style={{ fontSize: "44px", marginBottom: "12px" }}>⚠️</div>
+            <div style={{ fontSize: "36px", marginBottom: "12px" }}>🗑️</div>
             <h3 style={{
-              fontFamily: "'Bebas Neue', cursive", fontSize: "24px",
-              letterSpacing: "2px", color: "#1A2332", marginBottom: "10px",
+              fontFamily: "'Bebas Neue', cursive",
+              fontSize: "22px", color: DARK,
+              letterSpacing: "2px", marginBottom: "8px",
             }}>
-              Remove Product?
+              Delete Product?
             </h3>
             <p style={{
-              color: "#6B7C93", fontSize: "13px", lineHeight: "1.7",
-              marginBottom: "20px", fontFamily: "'Outfit', sans-serif",
+              color: MID, fontSize: "13px",
+              fontFamily: "'Outfit', sans-serif",
+              marginBottom: "20px", lineHeight: "1.5",
             }}>
-              This product will be permanently removed from your store and will no longer be visible to customers.
+              This action cannot be undone. The product and all its images will be permanently deleted.
             </p>
             <div style={{ display: "flex", gap: "10px" }}>
-              <button onClick={() => setDeleteConfirm(null)} style={{
-                flex: 1, background: "#F5F7FA",
-                border: "1px solid #E8EFF5", borderRadius: "8px",
-                padding: "11px", color: "#4A6080", cursor: "pointer",
-                fontFamily: "'Outfit', sans-serif", fontWeight: "700", fontSize: "13px",
-              }}>
+              <button
+                onClick={() => setDeleteModal(null)}
+                style={{
+                  flex: 1, background: CARD_BG,
+                  color: DARK, border: `1px solid ${CARD_BORDER}`,
+                  borderRadius: "8px", padding: "10px",
+                  fontFamily: "'Outfit', sans-serif",
+                  fontWeight: "600", fontSize: "13px",
+                  cursor: "pointer",
+                }}>
                 Cancel
               </button>
-              <button onClick={() => handleDelete(deleteConfirm)} style={{
-                flex: 1, background: "#EF4444",
-                border: "none", borderRadius: "8px",
-                padding: "11px", color: "white", cursor: "pointer",
-                fontFamily: "'Outfit', sans-serif", fontWeight: "700", fontSize: "13px",
-              }}>
-                Yes, Remove
+              <button
+                onClick={() => handleDelete(deleteModal)}
+                style={{
+                  flex: 1, background: "#EF4444",
+                  color: "white", border: "none",
+                  borderRadius: "8px", padding: "10px",
+                  fontFamily: "'Outfit', sans-serif",
+                  fontWeight: "700", fontSize: "13px",
+                  cursor: "pointer",
+                }}>
+                Delete
               </button>
             </div>
           </div>
         </div>
       )}
-
-      {/* Image Preview Modal */}
-      {previewImg && (
-        <div
-          onClick={() => setPreviewImg(null)}
-          style={{
-            position: "fixed", inset: 0, zIndex: 2000,
-            background: "rgba(0,0,0,0.85)",
-            display: "flex", alignItems: "center",
-            justifyContent: "center", cursor: "pointer", padding: "20px",
-          }}
-        >
-          <div style={{ position: "relative" }}>
-            <img
-              src={previewImg} alt="Preview"
-              style={{
-                maxWidth: "80vw", maxHeight: "80vh",
-                borderRadius: "12px",
-                boxShadow: "0 20px 60px rgba(0,0,0,0.5)",
-              }}
-            />
-            <button style={{
-              position: "absolute", top: "-12px", right: "-12px",
-              width: "30px", height: "30px",
-              background: "white", border: "none",
-              borderRadius: "50%", fontSize: "14px",
-              cursor: "pointer", fontWeight: "700",
-              display: "flex", alignItems: "center", justifyContent: "center",
-              boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
-            }}>
-              ✕
-            </button>
-          </div>
-        </div>
-      )}
-
-      <style>{`
-        @keyframes spin { to { transform: rotate(360deg); } }
-        @media (max-width: 768px) {
-          .form-cols { grid-template-columns: 1fr !important; }
-        }
-      `}</style>
     </div>
   );
 };
