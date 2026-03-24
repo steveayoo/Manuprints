@@ -4,7 +4,7 @@ import {
   doc, onSnapshot, serverTimestamp, orderBy, query
 } from "firebase/firestore";
 import {
-  ref, uploadBytes, getDownloadURL, deleteObject
+  ref, uploadBytesResumable, getDownloadURL
 } from "firebase/storage";
 import {
   signInWithEmailAndPassword, signOut, onAuthStateChanged
@@ -43,9 +43,9 @@ export const AdminProvider = ({ children }) => {
   useEffect(() => {
     const q = query(collection(db, "products"), orderBy("createdAt", "desc"));
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const data = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
+      const data = snapshot.docs.map((docSnap) => ({
+        id: docSnap.id,
+        ...docSnap.data(),
       }));
       setProducts(data);
       setLoading(false);
@@ -56,7 +56,7 @@ export const AdminProvider = ({ children }) => {
     return () => unsubscribe();
   }, []);
 
-  // Login with Firebase Auth
+  // Login
   const login = async (email, password) => {
     try {
       await signInWithEmailAndPassword(auth, email, password);
@@ -78,74 +78,115 @@ export const AdminProvider = ({ children }) => {
     }
   };
 
-  // Upload image to Firebase Storage
-  const uploadImage = async (file, productName) => {
-    try {
+  // Upload a single image file to Firebase Storage and return its download URL
+  const uploadImageToFirebase = (file, productName) => {
+    return new Promise((resolve, reject) => {
       const timestamp = Date.now();
-      const fileName = `products/${productName}-${timestamp}-${file.name}`;
+      const cleanName = productName.replace(/\s+/g, "_");
+      const fileName = `products/${cleanName}_${timestamp}_${file.name}`;
       const storageRef = ref(storage, fileName);
-      const snapshot = await uploadBytes(storageRef, file);
-      const downloadURL = await getDownloadURL(snapshot.ref);
-      return downloadURL;
-    } catch (error) {
-      console.error("Error uploading image:", error);
-      toast.error("Error uploading image.");
-      return null;
-    }
+      const uploadTask = uploadBytesResumable(storageRef, file);
+
+      uploadTask.on(
+        "state_changed",
+        null,
+        (error) => {
+          console.error("Upload error:", error);
+          reject(error);
+        },
+        async () => {
+          try {
+            const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+            resolve(downloadURL);
+          } catch (err) {
+            reject(err);
+          }
+        }
+      );
+    });
   };
 
-  // Add product to Firestore
+  // Add product — uploads images first then saves to Firestore
   const addProduct = async (productData, imageFiles) => {
     try {
-      toast.loading("Uploading images...");
+      const toastId = toast.loading("Uploading images to Firebase...");
       const imageURLs = [];
+
       for (const file of imageFiles) {
         if (file) {
-          const url = await uploadImage(file, productData.name);
-          if (url) imageURLs.push(url);
+          try {
+            const url = await uploadImageToFirebase(file, productData.name);
+            imageURLs.push(url);
+            console.log("Image uploaded successfully:", url);
+          } catch (err) {
+            console.error("Failed to upload one image:", err);
+          }
         }
       }
-      toast.dismiss();
+
+      toast.dismiss(toastId);
+
+      if (imageURLs.length === 0 && imageFiles.filter(Boolean).length > 0) {
+        toast.error("Image upload failed. Check Firebase Storage rules.");
+        return false;
+      }
+
+      toast.loading("Saving product to database...");
+
       const newProduct = {
         ...productData,
         images: imageURLs,
         createdAt: serverTimestamp(),
       };
+
       await addDoc(collection(db, "products"), newProduct);
+      toast.dismiss();
       toast.success("Product added successfully!");
       return true;
     } catch (error) {
       toast.dismiss();
       console.error("Error adding product:", error);
-      toast.error("Error adding product.");
+      toast.error("Error adding product: " + error.message);
       return false;
     }
   };
 
-  // Update product in Firestore
+  // Update product — uploads new images then saves to Firestore
   const updateProduct = async (id, productData, newImageFiles, existingImages) => {
     try {
-      toast.loading("Updating product...");
-      const imageURLs = [...existingImages];
+      const toastId = toast.loading("Uploading new images...");
+      const newURLs = [];
+
       for (const file of newImageFiles) {
         if (file) {
-          const url = await uploadImage(file, productData.name);
-          if (url) imageURLs.push(url);
+          try {
+            const url = await uploadImageToFirebase(file, productData.name);
+            newURLs.push(url);
+          } catch (err) {
+            console.error("Failed to upload image:", err);
+          }
         }
       }
-      toast.dismiss();
+
+      toast.dismiss(toastId);
+      toast.loading("Updating product...");
+
+      const allImages = [...existingImages, ...newURLs];
+
       const updatedProduct = {
         ...productData,
-        images: imageURLs,
+        images: allImages,
         updatedAt: serverTimestamp(),
       };
+
       await updateDoc(doc(db, "products", id), updatedProduct);
+      toast.dismiss();
       toast.success("Product updated successfully!");
       return true;
     } catch (error) {
       toast.dismiss();
       console.error("Error updating product:", error);
-      toast.error("Error updating product.");
+      toast.error("Error updating product: " + error.message);
       return false;
     }
   };
@@ -181,7 +222,6 @@ export const AdminProvider = ({ children }) => {
       updateProduct,
       deleteProduct,
       updateSettings,
-      uploadImage,
     }}>
       {children}
     </AdminContext.Provider>
@@ -190,3 +230,41 @@ export const AdminProvider = ({ children }) => {
 
 export const useAdmin = () => useContext(AdminContext);
 export default AdminContext;
+```
+
+Save **(Ctrl + S)**.
+
+---
+
+## Fix 4 — Update Firebase Storage Rules
+
+Go to **Firebase Console → Storage → Rules** and replace the rules with:
+```
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /{allPaths=**} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+  }
+}
+```
+
+Click **Publish**.
+
+---
+
+## Update Firestore Rules
+
+Go to **Firebase Console → Firestore Database → Rules** and replace with:
+```
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /products/{document=**} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+  }
+}
