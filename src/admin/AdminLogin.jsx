@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAdmin } from "../context/AdminContext";
 
@@ -15,10 +15,9 @@ const AdminLogin = () => {
   const { login, isAdminLoggedIn } = useAdmin();
   const navigate = useNavigate();
 
-  if (isAdminLoggedIn) {
-    navigate("/admin/dashboard");
-    return null;
-  }
+  useEffect(() => {
+    if (isAdminLoggedIn) navigate("/admin/dashboard");
+  }, [isAdminLoggedIn, navigate]);
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -63,7 +62,6 @@ const AdminLogin = () => {
         maxWidth: "400px",
         boxShadow: "0 8px 40px rgba(139,105,20,0.15)",
       }}>
-        {/* Logo */}
         <div style={{ textAlign: "center", marginBottom: "28px" }}>
           <div style={{
             width: "56px", height: "56px",
@@ -93,89 +91,86 @@ const AdminLogin = () => {
           </p>
         </div>
 
-        {/* Form */}
-        <div>
-          <label style={{
-            color: MID, fontSize: "11px", fontWeight: "700",
-            letterSpacing: "1px", textTransform: "uppercase",
-            display: "block", marginBottom: "6px",
-            fontFamily: "'Outfit', sans-serif",
-          }}>
-            Email Address
-          </label>
-          <input
-            type="email"
-            placeholder="admin@manuprints.com"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            style={inputStyle}
-            onFocus={(e) => {
-              e.target.style.borderColor = GOLD;
-              e.target.style.boxShadow = `0 0 0 3px rgba(139,105,20,0.1)`;
-            }}
-            onBlur={(e) => {
-              e.target.style.borderColor = CARD_BORDER;
-              e.target.style.boxShadow = "none";
-            }}
-            onKeyDown={(e) => e.key === "Enter" && handleLogin()}
-          />
+        <label style={{
+          color: MID, fontSize: "11px", fontWeight: "700",
+          letterSpacing: "1px", textTransform: "uppercase",
+          display: "block", marginBottom: "6px",
+          fontFamily: "'Outfit', sans-serif",
+        }}>
+          Email Address
+        </label>
+        <input
+          type="email"
+          placeholder="admin@manuprints.com"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          style={inputStyle}
+          onFocus={(e) => {
+            e.target.style.borderColor = GOLD;
+            e.target.style.boxShadow = `0 0 0 3px rgba(139,105,20,0.1)`;
+          }}
+          onBlur={(e) => {
+            e.target.style.borderColor = CARD_BORDER;
+            e.target.style.boxShadow = "none";
+          }}
+          onKeyDown={(e) => e.key === "Enter" && handleLogin()}
+        />
 
-          <label style={{
-            color: MID, fontSize: "11px", fontWeight: "700",
-            letterSpacing: "1px", textTransform: "uppercase",
-            display: "block", marginBottom: "6px",
-            fontFamily: "'Outfit', sans-serif",
-          }}>
-            Password
-          </label>
-          <input
-            type="password"
-            placeholder="Enter your password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            style={inputStyle}
-            onFocus={(e) => {
-              e.target.style.borderColor = GOLD;
-              e.target.style.boxShadow = `0 0 0 3px rgba(139,105,20,0.1)`;
-            }}
-            onBlur={(e) => {
-              e.target.style.borderColor = CARD_BORDER;
-              e.target.style.boxShadow = "none";
-            }}
-            onKeyDown={(e) => e.key === "Enter" && handleLogin()}
-          />
+        <label style={{
+          color: MID, fontSize: "11px", fontWeight: "700",
+          letterSpacing: "1px", textTransform: "uppercase",
+          display: "block", marginBottom: "6px",
+          fontFamily: "'Outfit', sans-serif",
+        }}>
+          Password
+        </label>
+        <input
+          type="password"
+          placeholder="Enter your password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          style={inputStyle}
+          onFocus={(e) => {
+            e.target.style.borderColor = GOLD;
+            e.target.style.boxShadow = `0 0 0 3px rgba(139,105,20,0.1)`;
+          }}
+          onBlur={(e) => {
+            e.target.style.borderColor = CARD_BORDER;
+            e.target.style.boxShadow = "none";
+          }}
+          onKeyDown={(e) => e.key === "Enter" && handleLogin()}
+        />
 
-          <button
-            onClick={handleLogin}
-            disabled={loading}
-            style={{
-              width: "100%",
-              background: loading
-                ? "rgba(139,105,20,0.5)"
-                : `linear-gradient(135deg, ${GOLD}, #6B5010)`,
-              color: "white", border: "none",
-              borderRadius: "10px", padding: "13px",
-              fontFamily: "'Outfit', sans-serif",
-              fontWeight: "700", fontSize: "14px",
-              cursor: loading ? "not-allowed" : "pointer",
-              transition: "all 0.3s",
-              boxShadow: `0 4px 16px rgba(139,105,20,0.35)`,
-              marginTop: "4px",
-            }}
-            onMouseEnter={(e) => {
-              if (!loading) {
-                e.currentTarget.style.transform = "translateY(-2px)";
-                e.currentTarget.style.boxShadow = `0 8px 24px rgba(139,105,20,0.45)`;
-              }
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.transform = "translateY(0)";
-              e.currentTarget.style.boxShadow = `0 4px 16px rgba(139,105,20,0.35)`;
-            }}
-          >
-            {loading ? "Signing in..." : "Sign In"}
-          </button>
-        </div>
+        <button
+          onClick={handleLogin}
+          disabled={loading}
+          style={{
+            width: "100%",
+            background: loading
+              ? "rgba(139,105,20,0.5)"
+              : `linear-gradient(135deg, ${GOLD}, #6B5010)`,
+            color: "white", border: "none",
+            borderRadius: "10px", padding: "13px",
+            fontFamily: "'Outfit', sans-serif",
+            fontWeight: "700", fontSize: "14px",
+            cursor: loading ? "not-allowed" : "pointer",
+            transition: "all 0.3s",
+            boxShadow: `0 4px 16px rgba(139,105,20,0.35)`,
+            marginTop: "4px",
+          }}
+          onMouseEnter={(e) => {
+            if (!loading) {
+              e.currentTarget.style.transform = "translateY(-2px)";
+              e.currentTarget.style.boxShadow = `0 8px 24px rgba(139,105,20,0.45)`;
+            }
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.transform = "translateY(0)";
+            e.currentTarget.style.boxShadow = `0 4px 16px rgba(139,105,20,0.35)`;
+          }}
+        >
+          {loading ? "Signing in..." : "Sign In"}
+        </button>
 
         <p style={{
           textAlign: "center", marginTop: "20px",

@@ -1,18 +1,9 @@
-import React, { createContext, useContext, useState, useEffect } from "react";
-import {
-  collection, addDoc, updateDoc, deleteDoc,
-  doc, onSnapshot, serverTimestamp, orderBy, query
-} from "firebase/firestore";
-import {
-  ref, uploadBytesResumable, getDownloadURL
-} from "firebase/storage";
-import {
-  signInWithEmailAndPassword, signOut, onAuthStateChanged
-} from "firebase/auth";
-import { db, storage, auth } from "../firebase";
+import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 import toast from "react-hot-toast";
 
 const AdminContext = createContext();
+
+const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000/api";
 
 const defaultSettings = {
   heroTitle: "Premium Printing & Branding Solutions",
@@ -24,177 +15,173 @@ export const AdminProvider = ({ children }) => {
   const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(false);
   const [siteSettings, setSiteSettings] = useState(defaultSettings);
   const [loading, setLoading] = useState(true);
-  const [authLoading, setAuthLoading] = useState(true);
+  const [token, setToken] = useState(localStorage.getItem("manuprints_token") || null);
 
-  // Listen to Firebase Auth state
+  // Check token on load
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (user && user.email === "45.qualitywriters@gmail.com") {
-        setIsAdminLoggedIn(true);
-      } else {
-        setIsAdminLoggedIn(false);
-      }
-      setAuthLoading(false);
-    });
-    return () => unsubscribe();
+    const savedToken = localStorage.getItem("manuprints_token");
+    if (savedToken) {
+      setToken(savedToken);
+      setIsAdminLoggedIn(true);
+    }
   }, []);
 
-  // Listen to Firestore products in real time
-  useEffect(() => {
-    const q = query(collection(db, "products"), orderBy("createdAt", "desc"));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const data = snapshot.docs.map((docSnap) => ({
-        id: docSnap.id,
-        ...docSnap.data(),
-      }));
+  // Fetch all products
+  const fetchProducts = useCallback(async () => {
+    try {
+      setLoading(true);
+      const res = await fetch(`${API_URL}/products`);
+      if (!res.ok) throw new Error("Failed to fetch products");
+      const data = await res.json();
       setProducts(data);
-      setLoading(false);
-    }, (error) => {
+    } catch (error) {
       console.error("Error fetching products:", error);
+      toast.error("Could not load products.");
+    } finally {
       setLoading(false);
-    });
-    return () => unsubscribe();
+    }
   }, []);
+
+  useEffect(() => {
+    fetchProducts();
+  }, [fetchProducts]);
 
   // Login
   const login = async (email, password) => {
     try {
-      await signInWithEmailAndPassword(auth, email, password);
-      toast.success("Welcome back, Admin!");
-      return true;
+      const res = await fetch(`${API_URL}/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+      const data = await res.json();
+      if (data.success && data.token) {
+        localStorage.setItem("manuprints_token", data.token);
+        setToken(data.token);
+        setIsAdminLoggedIn(true);
+        toast.success("Welcome back, Admin!");
+        return true;
+      } else {
+        toast.error(data.message || "Invalid credentials");
+        return false;
+      }
     } catch (error) {
-      toast.error("Invalid email or password.");
+      toast.error("Login failed. Check your connection.");
       return false;
     }
   };
 
   // Logout
-  const logout = async () => {
-    try {
-      await signOut(auth);
-      toast.success("Logged out successfully.");
-    } catch (error) {
-      toast.error("Error logging out.");
-    }
+  const logout = () => {
+    localStorage.removeItem("manuprints_token");
+    setToken(null);
+    setIsAdminLoggedIn(false);
+    toast.success("Logged out successfully.");
   };
 
-  // Upload a single image file to Firebase Storage and return its download URL
-  const uploadImageToFirebase = (file, productName) => {
-    return new Promise((resolve, reject) => {
-      const timestamp = Date.now();
-      const cleanName = productName.replace(/\s+/g, "_");
-      const fileName = `products/${cleanName}_${timestamp}_${file.name}`;
-      const storageRef = ref(storage, fileName);
-      const uploadTask = uploadBytesResumable(storageRef, file);
-
-      uploadTask.on(
-        "state_changed",
-        null,
-        (error) => {
-          console.error("Upload error:", error);
-          reject(error);
-        },
-        async () => {
-          try {
-            const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-            resolve(downloadURL);
-          } catch (err) {
-            reject(err);
-          }
-        }
-      );
-    });
-  };
-
-  // Add product — uploads images first then saves to Firestore
+  // Add product with images
   const addProduct = async (productData, imageFiles) => {
     try {
-      const toastId = toast.loading("Uploading images to Firebase...");
-      const imageURLs = [];
+      const toastId = toast.loading("Uploading product and images...");
+      const formData = new FormData();
 
-      for (const file of imageFiles) {
-        if (file) {
-          try {
-            const url = await uploadImageToFirebase(file, productData.name);
-            imageURLs.push(url);
-            console.log("Image uploaded successfully:", url);
-          } catch (err) {
-            console.error("Failed to upload one image:", err);
-          }
-        }
-      }
+      formData.append("name", productData.name);
+      formData.append("category", productData.category);
+      formData.append("price", productData.price);
+      formData.append("delivery", productData.delivery || 0);
+      formData.append("description", productData.description || "");
+      formData.append("fabric", productData.fabric || "");
+      formData.append("sizes", JSON.stringify(productData.sizes || []));
+      formData.append("featured", productData.featured ? "true" : "false");
+
+      imageFiles.forEach((file) => {
+        if (file) formData.append("images", file);
+      });
+
+      const res = await fetch(`${API_URL}/products`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
 
       toast.dismiss(toastId);
 
-      if (imageURLs.length === 0 && imageFiles.filter(Boolean).length > 0) {
-        toast.error("Image upload failed. Check Firebase Storage rules.");
+      if (!res.ok) {
+        const err = await res.json();
+        toast.error(err.message || "Failed to add product");
         return false;
       }
 
-      toast.loading("Saving product to database...");
-
-      const newProduct = {
-        ...productData,
-        images: imageURLs,
-        createdAt: serverTimestamp(),
-      };
-
-      await addDoc(collection(db, "products"), newProduct);
-      toast.dismiss();
+      await fetchProducts();
       toast.success("Product added successfully!");
       return true;
     } catch (error) {
       toast.dismiss();
       console.error("Error adding product:", error);
-      toast.error("Error adding product: " + error.message);
+      toast.error("Error adding product.");
       return false;
     }
   };
 
-  // Update product — uploads new images then saves to Firestore
+  // Update product
   const updateProduct = async (id, productData, newImageFiles, existingImages) => {
     try {
-      const toastId = toast.loading("Uploading new images...");
-      const newURLs = [];
+      const toastId = toast.loading("Updating product...");
+      const formData = new FormData();
 
-      for (const file of newImageFiles) {
-        if (file) {
-          try {
-            const url = await uploadImageToFirebase(file, productData.name);
-            newURLs.push(url);
-          } catch (err) {
-            console.error("Failed to upload image:", err);
-          }
-        }
-      }
+      formData.append("name", productData.name);
+      formData.append("category", productData.category);
+      formData.append("price", productData.price);
+      formData.append("delivery", productData.delivery || 0);
+      formData.append("description", productData.description || "");
+      formData.append("fabric", productData.fabric || "");
+      formData.append("sizes", JSON.stringify(productData.sizes || []));
+      formData.append("featured", productData.featured ? "true" : "false");
+      formData.append("existingImages", JSON.stringify(existingImages || []));
+
+      newImageFiles.forEach((file) => {
+        if (file) formData.append("images", file);
+      });
+
+      const res = await fetch(`${API_URL}/products/${id}`, {
+        method: "PUT",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
 
       toast.dismiss(toastId);
-      toast.loading("Updating product...");
 
-      const allImages = [...existingImages, ...newURLs];
+      if (!res.ok) {
+        const err = await res.json();
+        toast.error(err.message || "Failed to update product");
+        return false;
+      }
 
-      const updatedProduct = {
-        ...productData,
-        images: allImages,
-        updatedAt: serverTimestamp(),
-      };
-
-      await updateDoc(doc(db, "products", id), updatedProduct);
-      toast.dismiss();
+      await fetchProducts();
       toast.success("Product updated successfully!");
       return true;
     } catch (error) {
       toast.dismiss();
       console.error("Error updating product:", error);
-      toast.error("Error updating product: " + error.message);
+      toast.error("Error updating product.");
       return false;
     }
   };
 
-  // Delete product from Firestore
+  // Delete product
   const deleteProduct = async (id) => {
     try {
-      await deleteDoc(doc(db, "products", id));
+      const res = await fetch(`${API_URL}/products/${id}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (!res.ok) {
+        toast.error("Failed to delete product");
+        return false;
+      }
+
+      await fetchProducts();
       toast.success("Product deleted successfully!");
       return true;
     } catch (error) {
@@ -215,13 +202,14 @@ export const AdminProvider = ({ children }) => {
       isAdminLoggedIn,
       siteSettings,
       loading,
-      authLoading,
+      token,
       login,
       logout,
       addProduct,
       updateProduct,
       deleteProduct,
       updateSettings,
+      fetchProducts,
     }}>
       {children}
     </AdminContext.Provider>
